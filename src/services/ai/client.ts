@@ -1,17 +1,22 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIAnalysisResult, ConfidenceLevel } from '@/types';
 
-const FOOD_ANALYSIS_PROMPT = `You are a nutrition expert analyzing food images and descriptions to estimate protein content.
+const FOOD_ANALYSIS_PROMPT = `You are a nutrition expert analyzing food images and descriptions to estimate protein content for the ENTIRE item being consumed.
 
 For the given food, provide:
-1. A clear food name/description
-2. Estimated protein content in grams
+1. A clear food name/description (include package size if visible)
+2. Estimated protein content in grams FOR THE WHOLE ITEM/PACKAGE
 3. Confidence level (high/medium/low)
 4. Brief reasoning for your estimate
 
-Guidelines:
-- Use standard serving sizes unless specified otherwise
-- For packaged foods with visible labels, extract the exact protein value
+CRITICAL GUIDELINES FOR NUTRITION LABELS:
+- When a label shows BOTH "per 100g/100ml" AND "per serving" or "per package" columns, ALWAYS use the per-package/per-serving value
+- The user is logging the ENTIRE food item they're eating, not just 100g of it
+- If only "per 100g/100ml" values are shown, look for the total package size and MULTIPLY accordingly
+- Example: If label shows "Protein: 10g per 100ml" and package is 330ml, the correct answer is 33g (10g × 3.3)
+- Look for package size indicators like "330ml", "500g", "1L", etc. on the label
+
+Guidelines for other foods:
 - For home-cooked or restaurant meals, estimate based on visible portions
 - Common protein estimates:
   - Chicken breast (100g cooked): ~31g protein
@@ -20,7 +25,7 @@ Guidelines:
   - Salmon (100g): ~25g protein
   - Beef (100g): ~26g protein
   - Tofu (100g): ~8g protein
-  - Protein shake (typical): ~20-30g protein
+  - Protein shake (typical serving): ~20-30g protein
 
 Respond in JSON format only:
 {
