@@ -202,7 +202,7 @@ export function Settings() {
             of your food. AI analyzes your meals and estimates protein content.
           </p>
           <p>
-            Estimated cost: ~$0.02 per photo analysis using Claude Haiku.
+            Estimated cost: ~$0.01 per analysis using Claude Sonnet.
           </p>
         </CardContent>
       </Card>
