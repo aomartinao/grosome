@@ -170,6 +170,11 @@ export const useAuthStore = create<AuthState>()(
             useStore.getState().reloadMessages();
           }
 
+          // Reload settings from IndexedDB after sync (settings may have been pulled from cloud)
+          if (result.success && result.settingsSynced) {
+            useStore.getState().reloadSettings();
+          }
+
           return result;
         } catch (err) {
           const error = err instanceof Error ? err.message : 'Sync failed';

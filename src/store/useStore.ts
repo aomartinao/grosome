@@ -5,12 +5,14 @@ import {
   addChatMessage,
   getChatMessages,
   updateChatMessage as updateChatMessageDb,
+  getUserSettings,
 } from '@/db';
 
 interface AppState {
   // User Settings
   settings: UserSettings;
   setSettings: (settings: Partial<UserSettings>) => void;
+  reloadSettings: () => Promise<void>;
 
   // Chat Messages (persisted to IndexedDB)
   messages: ChatMessage[];
@@ -46,6 +48,18 @@ export const useStore = create<AppState>()(
         set((state) => ({
           settings: { ...state.settings, ...newSettings },
         })),
+
+      reloadSettings: async () => {
+        try {
+          const dbSettings = await getUserSettings();
+          if (dbSettings) {
+            set({ settings: dbSettings });
+            console.log('[Store] Reloaded settings from IndexedDB');
+          }
+        } catch (err) {
+          console.error('[Store] Failed to reload settings:', err);
+        }
+      },
 
       // Chat messages
       messages: [],
