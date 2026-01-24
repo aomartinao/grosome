@@ -26,11 +26,36 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
   const remaining = Math.max(goal - totalProtein, 0);
   const caloriesRemaining = calorieGoal ? Math.max(calorieGoal - totalCalories, 0) : 0;
 
+  const showDualRings = calorieTrackingEnabled && calorieGoal;
+
   return (
     <div className="space-y-6 p-4">
-      {/* Progress Ring */}
+      {/* Progress Ring(s) */}
       <div className="flex justify-center py-4">
-        <ProgressRing current={totalProtein} goal={goal} size={220} strokeWidth={14} />
+        {showDualRings ? (
+          <div className="flex gap-4 items-center">
+            <ProgressRing
+              current={totalProtein}
+              goal={goal}
+              size={150}
+              strokeWidth={12}
+              variant="protein"
+              label="Protein"
+              unit="g"
+            />
+            <ProgressRing
+              current={totalCalories}
+              goal={calorieGoal}
+              size={150}
+              strokeWidth={12}
+              variant="calories"
+              label="Calories"
+              unit=""
+            />
+          </div>
+        ) : (
+          <ProgressRing current={totalProtein} goal={goal} size={220} strokeWidth={14} />
+        )}
       </div>
 
       {/* Stats Cards */}

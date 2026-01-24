@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, ExternalLink, Trash2, Zap } from 'lucide-react';
+import { Eye, EyeOff, ExternalLink, Trash2, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { version } from '../../package.json';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,11 @@ export function Settings() {
   const { settings, updateSettings } = useSettings();
   const { clearMessages } = useStore();
   const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeyExpanded, setApiKeyExpanded] = useState(!settings.claudeApiKey);
   const [apiKey, setApiKey] = useState(settings.claudeApiKey || '');
+
+  // Default protein tracking to true if not set
+  const proteinTrackingEnabled = settings.proteinTrackingEnabled !== false;
 
   const handleSaveApiKey = async () => {
     await updateSettings({ claudeApiKey: apiKey || undefined });
@@ -34,57 +38,79 @@ export function Settings() {
       {/* Cloud Sync */}
       <SyncStatus />
 
-      {/* API Key Settings */}
+      {/* API Key Settings - Collapsible */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Claude API Key</CardTitle>
-          <CardDescription>
-            Required for AI-powered food analysis. Your key is stored locally and never sent
-            to any server except Anthropic's API.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                type={showApiKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-ant-..."
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full"
-                onClick={() => setShowApiKey(!showApiKey)}
-              >
-                {showApiKey ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </Button>
+        <CardHeader
+          className="cursor-pointer select-none"
+          onClick={() => setApiKeyExpanded(!apiKeyExpanded)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Key className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-lg">Claude API Key</CardTitle>
+              {settings.claudeApiKey && (
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                  Configured
+                </span>
+              )}
             </div>
-            <Button onClick={handleSaveApiKey}>Save</Button>
+            {apiKeyExpanded ? (
+              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            )}
           </div>
-          <a
-            href="https://console.anthropic.com/settings/keys"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-          >
-            Get your API key
-            <ExternalLink className="h-3 w-3" />
-          </a>
-          {settings.claudeApiKey && (
-            <p className="text-sm text-green-600">API key is configured</p>
+          {!apiKeyExpanded && !settings.claudeApiKey && (
+            <CardDescription className="mt-1">
+              Click to configure your API key
+            </CardDescription>
           )}
-        </CardContent>
+        </CardHeader>
+        {apiKeyExpanded && (
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Required for AI-powered food analysis. Your key is stored locally and never sent
+              to any server except Anthropic's API.
+            </p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="sk-ant-..."
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                >
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <Button onClick={handleSaveApiKey}>Save</Button>
+            </div>
+            <a
+              href="https://console.anthropic.com/settings/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              Get your API key
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </CardContent>
+        )}
       </Card>
 
-      {/* Goal Settings */}
+      {/* Goal Settings - Combined */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Daily Goals</CardTitle>
@@ -92,30 +118,69 @@ export function Settings() {
             Your default daily nutrition targets.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Protein Goal</label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                value={settings.defaultGoal}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (val > 0 && val <= 500) {
-                    updateSettings({ defaultGoal: val });
-                  }
-                }}
-                min={1}
-                max={500}
-                className="w-24"
-              />
-              <span className="text-muted-foreground">grams per day</span>
+        <CardContent className="space-y-5">
+          {/* Protein Tracking */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Protein</label>
+              <button
+                onClick={() => updateSettings({ proteinTrackingEnabled: !proteinTrackingEnabled })}
+                className={cn(
+                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+                  proteinTrackingEnabled ? 'bg-primary' : 'bg-muted'
+                )}
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
+                    proteinTrackingEnabled ? 'translate-x-5' : 'translate-x-0'
+                  )}
+                />
+              </button>
             </div>
+            {proteinTrackingEnabled && (
+              <div className="flex items-center gap-2 pl-1">
+                <Input
+                  type="number"
+                  value={settings.defaultGoal}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (val > 0 && val <= 500) {
+                      updateSettings({ defaultGoal: val });
+                    }
+                  }}
+                  min={1}
+                  max={500}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">grams per day</span>
+              </div>
+            )}
           </div>
-          {settings.calorieTrackingEnabled && (
-            <div>
-              <label className="text-sm font-medium mb-2 block">Calorie Goal</label>
-              <div className="flex items-center gap-2">
+
+          <div className="border-t" />
+
+          {/* Calorie Tracking */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Calories</label>
+              <button
+                onClick={() => updateSettings({ calorieTrackingEnabled: !settings.calorieTrackingEnabled })}
+                className={cn(
+                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+                  settings.calorieTrackingEnabled ? 'bg-primary' : 'bg-muted'
+                )}
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
+                    settings.calorieTrackingEnabled ? 'translate-x-5' : 'translate-x-0'
+                  )}
+                />
+              </button>
+            </div>
+            {settings.calorieTrackingEnabled && (
+              <div className="flex items-center gap-2 pl-1">
                 <Input
                   type="number"
                   value={settings.calorieGoal || ''}
@@ -130,44 +195,10 @@ export function Settings() {
                   placeholder="2000"
                   className="w-24"
                 />
-                <span className="text-muted-foreground">kcal per day</span>
+                <span className="text-sm text-muted-foreground">kcal per day</span>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Calorie Tracking */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Zap className="h-5 w-5 text-amber-500" />
-            Calorie Tracking
-          </CardTitle>
-          <CardDescription>
-            Track calories alongside protein intake.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <button
-            onClick={() => updateSettings({ calorieTrackingEnabled: !settings.calorieTrackingEnabled })}
-            className={cn(
-              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-              settings.calorieTrackingEnabled ? 'bg-primary' : 'bg-muted'
             )}
-          >
-            <span
-              className={cn(
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
-                settings.calorieTrackingEnabled ? 'translate-x-5' : 'translate-x-0'
-              )}
-            />
-          </button>
-          <p className="text-sm text-muted-foreground mt-2">
-            {settings.calorieTrackingEnabled
-              ? 'Calorie tracking is enabled. AI will estimate calories for all entries.'
-              : 'Enable to track calories in addition to protein.'}
-          </p>
+          </div>
         </CardContent>
       </Card>
 

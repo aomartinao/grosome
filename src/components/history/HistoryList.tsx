@@ -43,7 +43,13 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
       stats.goalMet = stats.totalProtein >= stats.goal;
     }
 
-    return Array.from(groups.values());
+    // Sort entries within each day by createdAt descending (newest first)
+    const result = Array.from(groups.values());
+    for (const day of result) {
+      day.entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    return result;
   }, [entries, goals, defaultGoal]);
 
   if (entries.length === 0) {

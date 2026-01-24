@@ -17,6 +17,7 @@ export interface UserSettings {
   id?: number;
   defaultGoal: number;       // daily protein target in grams
   calorieGoal?: number;      // daily calorie target in kcal
+  proteinTrackingEnabled?: boolean;  // default true
   calorieTrackingEnabled?: boolean;
   theme: 'light' | 'dark' | 'system';
   claudeApiKey?: string;     // user provides their own key
