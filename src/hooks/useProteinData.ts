@@ -60,6 +60,7 @@ export function useDailyGoals(): Map<string, number> {
 export function useSettings() {
   const { settings, setSettings } = useStore();
   const { syncSettings, user } = useAuthStore();
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // Load settings from IndexedDB on mount
   useEffect(() => {
@@ -67,6 +68,7 @@ export function useSettings() {
       if (dbSettings) {
         setSettings(dbSettings);
       }
+      setSettingsLoaded(true);
     });
   }, [setSettings]);
 
@@ -84,7 +86,7 @@ export function useSettings() {
     [settings, setSettings, user, syncSettings]
   );
 
-  return { settings, updateSettings };
+  return { settings, updateSettings, settingsLoaded };
 }
 
 export function useStreak(entries: FoodEntry[], defaultGoal: number): StreakInfo {

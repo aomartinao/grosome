@@ -99,7 +99,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
 
 export function Advisor() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { settings, updateSettings } = useSettings();
+  const { settings, updateSettings, settingsLoaded } = useSettings();
   const { user } = useAuthStore();
   const { remaining, goal, consumed } = useRemainingProtein();
   const nickname = getNickname(user?.email);
@@ -203,8 +203,9 @@ export function Advisor() {
   // Check if currently typing (for UI state)
   const isTyping = isProcessingRef.current || messageQueueRef.current.length > 0;
 
-  // Initialize
+  // Initialize - wait for settings to load first
   useEffect(() => {
+    if (!settingsLoaded) return; // Wait for settings to load from IndexedDB
     if (initialized) return;
     setInitialized(true);
 
@@ -226,7 +227,7 @@ export function Advisor() {
         `${greeting}You have ${remaining}g protein left today. Ask me to suggest a meal, evaluate a food choice, or analyze a menu photo!`
       ]);
     }
-  }, [initialized, settings.advisorOnboarded, remaining, nickname, queueMessages]);
+  }, [settingsLoaded, initialized, settings.advisorOnboarded, remaining, nickname, queueMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
