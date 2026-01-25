@@ -13,10 +13,20 @@ interface MessageBubbleProps {
   isLatestMessage?: boolean;
 }
 
-export function MessageBubble({ message, onConfirm, onEdit, showCalories }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  onConfirm,
+  onEdit,
+  onQuickReply,
+  showCalories,
+  isLatestMessage,
+}: MessageBubbleProps) {
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
   const isConfirmed = !!message.foodEntrySyncId;
+
+  // Only show quick replies on the latest message
+  const showQuickReplies = isLatestMessage && message.advisorQuickReplies && message.advisorQuickReplies.length > 0;
 
   return (
     <div
@@ -62,6 +72,12 @@ export function MessageBubble({ message, onConfirm, onEdit, showCalories }: Mess
                   isConfirmed={isConfirmed}
                 />
               </div>
+            )}
+            {showQuickReplies && onQuickReply && (
+              <QuickReplies
+                replies={message.advisorQuickReplies!}
+                onSelect={onQuickReply}
+              />
             )}
           </>
         )}

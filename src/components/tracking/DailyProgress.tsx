@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Flame, Dumbbell, Plus, ChevronLeft, ChevronRight, History } from 'lucide-react';
 import { ProgressRing } from './ProgressRing';
 import { Button } from '@/components/ui/button';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { calculateMPSHits, cn, formatTime } from '@/lib/utils';
 import type { FoodEntry, StreakInfo } from '@/types';
 
@@ -49,6 +50,8 @@ interface DailyProgressProps {
   onPrevDay: () => void;
   onNextDay?: () => void;
   onToday?: () => void;
+  onEditEntry?: (entry: FoodEntry) => void;
+  onDeleteEntry?: (id: number) => void;
 }
 
 export function DailyProgress({
@@ -63,8 +66,15 @@ export function DailyProgress({
   onPrevDay,
   onNextDay,
   onToday,
+  onEditEntry,
+  onDeleteEntry,
 }: DailyProgressProps) {
   const navigate = useNavigate();
+
+  // Swipe state for date navigation
+  const swipeStartX = useRef(0);
+  const swipeStartY = useRef(0);
+  const [isSwiping, setIsSwiping] = useState(false);
 
   const totalProtein = useMemo(
     () => entries.reduce((sum, entry) => sum + entry.protein, 0),
@@ -91,19 +101,48 @@ export function DailyProgress({
 
   const showDualRings = calorieTrackingEnabled && calorieGoal;
 
+  // Swipe handlers for date navigation
+  const handleTouchStart = (e: React.TouchEvent) => {
+    swipeStartX.current = e.touches[0].clientX;
+    swipeStartY.current = e.touches[0].clientY;
+    setIsSwiping(false);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const deltaX = e.touches[0].clientX - swipeStartX.current;
+    const deltaY = e.touches[0].clientY - swipeStartY.current;
+
+    // Only consider horizontal swipes
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+      setIsSwiping(true);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isSwiping) return;
+
+    const deltaX = e.changedTouches[0].clientX - swipeStartX.current;
+    const SWIPE_THRESHOLD = 50;
+
+    if (deltaX > SWIPE_THRESHOLD) {
+      onPrevDay();
+    } else if (deltaX < -SWIPE_THRESHOLD && onNextDay) {
+      onNextDay();
+    }
+
+    setIsSwiping(false);
+  };
+
+  const handleHeroClick = () => {
+    if (isToday && !isSwiping) {
+      navigate('/chat');
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-full">
-      {/* Date Navigation */}
-      <div className="flex items-center justify-between px-4 py-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-full"
-          onClick={onPrevDay}
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-
+      {/* Date Label */}
+      <div className="flex items-center justify-center px-4 py-2">
         <button
           onClick={onToday}
           className={cn(
@@ -120,55 +159,78 @@ export function DailyProgress({
             </p>
           )}
         </button>
+      </div>
 
+      {/* Hero Section - Progress Ring(s) with Navigation Arrows */}
+      <div
+        className={cn(
+          'flex-1 flex items-center justify-center px-2 py-6',
+          isToday && 'cursor-pointer'
+        )}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={handleHeroClick}
+      >
+        {/* Left Arrow */}
         <Button
           variant="ghost"
           size="icon"
-          className={cn('h-9 w-9 rounded-full', !onNextDay && 'opacity-30')}
-          onClick={onNextDay}
+          className="h-12 w-12 rounded-full flex-shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPrevDay();
+          }}
+        >
+          <ChevronLeft className="h-7 w-7" />
+        </Button>
+
+        {/* Progress Rings */}
+        <div className="flex-1 flex flex-col items-center justify-center">
+          {showDualRings ? (
+            <div className="flex gap-6 items-center">
+              <ProgressRing
+                current={totalProtein}
+                goal={goal}
+                size={140}
+                strokeWidth={10}
+                variant="protein"
+                label="Protein"
+                unit="g"
+              />
+              <ProgressRing
+                current={totalCalories}
+                goal={calorieGoal}
+                size={140}
+                strokeWidth={10}
+                variant="calories"
+                label="Calories"
+                unit=""
+              />
+            </div>
+          ) : (
+            <ProgressRing current={totalProtein} goal={goal} size={200} strokeWidth={12} />
+          )}
+
+          {/* Tap to log hint - only for today */}
+          {isToday && (
+            <p className="text-xs text-muted-foreground mt-4">Tap to log food</p>
+          )}
+        </div>
+
+        {/* Right Arrow */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn('h-12 w-12 rounded-full flex-shrink-0', !onNextDay && 'opacity-30')}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onNextDay) onNextDay();
+          }}
           disabled={!onNextDay}
         >
-          <ChevronRight className="h-5 w-5" />
+          <ChevronRight className="h-7 w-7" />
         </Button>
-      </div>
-
-      {/* Hero Section - Progress Ring(s) */}
-      <div
-        className={cn(
-          'flex-1 flex flex-col items-center justify-center px-4 py-6',
-          isToday && 'cursor-pointer'
-        )}
-        onClick={isToday ? () => navigate('/chat') : undefined}
-      >
-        {showDualRings ? (
-          <div className="flex gap-6 items-center">
-            <ProgressRing
-              current={totalProtein}
-              goal={goal}
-              size={140}
-              strokeWidth={10}
-              variant="protein"
-              label="Protein"
-              unit="g"
-            />
-            <ProgressRing
-              current={totalCalories}
-              goal={calorieGoal}
-              size={140}
-              strokeWidth={10}
-              variant="calories"
-              label="Calories"
-              unit=""
-            />
-          </div>
-        ) : (
-          <ProgressRing current={totalProtein} goal={goal} size={200} strokeWidth={12} />
-        )}
-
-        {/* Tap to log hint - only for today */}
-        {isToday && (
-          <p className="text-xs text-muted-foreground mt-4">Tap to log food</p>
-        )}
       </div>
 
       {/* Bottom Section - Stats & Entries */}
@@ -239,34 +301,37 @@ export function DailyProgress({
           {entries.length > 0 ? (
             <div className="space-y-1.5">
               {entries.slice().reverse().map((entry) => (
-                <div
+                <SwipeableRow
                   key={entry.id}
-                  className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/50"
+                  onEdit={isToday && onEditEntry ? () => onEditEntry(entry) : undefined}
+                  onDelete={isToday && onDeleteEntry && entry.id ? () => onDeleteEntry(entry.id!) : undefined}
                 >
-                  {entry.imageData ? (
-                    <img
-                      src={entry.imageData}
-                      alt={entry.foodName}
-                      className="w-10 h-10 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <span className="text-xs font-bold text-primary">{entry.protein}g</span>
+                  <div className="flex items-center gap-3 p-2.5">
+                    {entry.imageData ? (
+                      <img
+                        src={entry.imageData}
+                        alt={entry.foodName}
+                        className="w-10 h-10 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-primary">{entry.protein}g</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{entry.foodName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatTime(entry.consumedAt || entry.createdAt)}
+                      </p>
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{entry.foodName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatTime(entry.consumedAt || entry.createdAt)}
-                    </p>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-primary">{entry.protein}g</span>
+                      {calorieTrackingEnabled && entry.calories ? (
+                        <p className="text-xs text-amber-600">{entry.calories} kcal</p>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-semibold text-primary">{entry.protein}g</span>
-                    {calorieTrackingEnabled && entry.calories ? (
-                      <p className="text-xs text-amber-600">{entry.calories} kcal</p>
-                    ) : null}
-                  </div>
-                </div>
+                </SwipeableRow>
               ))}
             </div>
           ) : (

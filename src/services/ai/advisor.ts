@@ -144,7 +144,6 @@ export async function getAdvisorSuggestion(
   const quickReplyPattern = /\[([^\]]+)\]/g;
   const quickReplies: string[] = [];
   let match;
-  let lastMatchEnd = 0;
 
   // Find all matches at the end of the message
   const lines = fullText.trim().split('\n');
@@ -155,7 +154,6 @@ export async function getAdvisorSuggestion(
   if (bracketCount >= 2) {
     while ((match = quickReplyPattern.exec(lastLine)) !== null) {
       quickReplies.push(match[1]);
-      lastMatchEnd = match.index + match[0].length;
     }
   }
 

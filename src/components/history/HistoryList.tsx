@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Trash2, Edit2, CheckCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import {
   Dialog,
   DialogContent,
@@ -134,62 +135,47 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
             </div>
 
             {/* Entries */}
-            <div className="bg-card rounded-2xl overflow-hidden shadow-sm divide-y divide-border/50">
+            <div className="space-y-1.5">
               {day.entries.map((entry) => (
-                <div key={entry.id} className="flex items-center gap-3 p-3">
-                  {/* Image or Protein Badge */}
-                  {entry.imageData ? (
-                    <img
-                      src={entry.imageData}
-                      alt={entry.foodName}
-                      className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-primary">{entry.protein}g</span>
-                    </div>
-                  )}
-
-                  {/* Entry Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{entry.foodName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(entry.consumedAt || entry.createdAt, 'h:mm a')}
-                      <span className="mx-1">·</span>
-                      <span className="capitalize">{entry.source}</span>
-                    </p>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="text-right flex-shrink-0">
-                    <span className="font-bold text-primary">{entry.protein}g</span>
-                    {calorieTrackingEnabled && entry.calories ? (
-                      <p className="text-xs text-amber-600">{entry.calories} kcal</p>
-                    ) : null}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-1 flex-shrink-0">
-                    {onEdit && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
-                        onClick={() => handleEditClick(entry)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
+                <SwipeableRow
+                  key={entry.id}
+                  onEdit={onEdit ? () => handleEditClick(entry) : undefined}
+                  onDelete={entry.id ? () => onDelete(entry.id!) : undefined}
+                  className="bg-card shadow-sm"
+                >
+                  <div className="flex items-center gap-3 p-3">
+                    {/* Image or Protein Badge */}
+                    {entry.imageData ? (
+                      <img
+                        src={entry.imageData}
+                        alt={entry.foodName}
+                        className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-primary">{entry.protein}g</span>
+                      </div>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
-                      onClick={() => entry.id && onDelete(entry.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+
+                    {/* Entry Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{entry.foodName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(entry.consumedAt || entry.createdAt, 'h:mm a')}
+                        <span className="mx-1">·</span>
+                        <span className="capitalize">{entry.source}</span>
+                      </p>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="text-right flex-shrink-0">
+                      <span className="font-bold text-primary">{entry.protein}g</span>
+                      {calorieTrackingEnabled && entry.calories ? (
+                        <p className="text-xs text-amber-600">{entry.calories} kcal</p>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
+                </SwipeableRow>
               ))}
             </div>
           </div>
