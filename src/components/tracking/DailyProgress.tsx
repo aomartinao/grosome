@@ -1,9 +1,40 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Flame, Target, TrendingUp, Zap, Dumbbell } from 'lucide-react';
 import { ProgressRing } from './ProgressRing';
 import { Card, CardContent } from '@/components/ui/card';
-import { calculateMPSHits } from '@/lib/utils';
+import { calculateMPSHits, cn } from '@/lib/utils';
 import type { FoodEntry, StreakInfo } from '@/types';
+
+function getMPSWindowStatus(lastHitTime: Date | null): {
+  minutesSince: number | null;
+  label: string;
+  dotColor: string;
+} {
+  if (!lastHitTime) {
+    return { minutesSince: null, label: 'Ready', dotColor: 'bg-green-500' };
+  }
+
+  const now = new Date();
+  const minutesSince = Math.floor((now.getTime() - lastHitTime.getTime()) / 60000);
+
+  if (minutesSince < 90) {
+    return { minutesSince, label: formatTimeSince(minutesSince), dotColor: 'bg-orange-500' };
+  } else if (minutesSince < 120) {
+    return { minutesSince, label: formatTimeSince(minutesSince), dotColor: 'bg-yellow-500' };
+  } else {
+    return { minutesSince, label: formatTimeSince(minutesSince), dotColor: 'bg-green-500' };
+  }
+}
+
+function formatTimeSince(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) {
+    return `${mins}m`;
+  }
+  return `${hours}h ${mins}m`;
+}
 
 interface DailyProgressProps {
   entries: FoodEntry[];
@@ -15,6 +46,8 @@ interface DailyProgressProps {
 }
 
 export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabled, mpsTrackingEnabled, streak }: DailyProgressProps) {
+  const navigate = useNavigate();
+
   const totalProtein = useMemo(
     () => entries.reduce((sum, entry) => sum + entry.protein, 0),
     [entries]
@@ -29,6 +62,14 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
     () => mpsTrackingEnabled ? calculateMPSHits(entries) : [],
     [entries, mpsTrackingEnabled]
   );
+
+  const lastMPSHitTime = useMemo(() => {
+    if (mpsHits.length === 0) return null;
+    const lastHit = mpsHits[mpsHits.length - 1];
+    return lastHit.consumedAt || lastHit.createdAt;
+  }, [mpsHits]);
+
+  const mpsWindowStatus = getMPSWindowStatus(lastMPSHitTime);
 
   const remaining = Math.max(goal - totalProtein, 0);
   const caloriesRemaining = calorieGoal ? Math.max(calorieGoal - totalCalories, 0) : 0;
@@ -67,7 +108,7 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-3">
-        <Card>
+        <Card className="cursor-pointer hover:bg-muted/50 active:bg-muted transition-colors" onClick={() => navigate('/chat')}>
           <CardContent className="flex flex-col items-center justify-center p-4">
             <Target className="h-5 w-5 text-primary mb-1" />
             <span className="text-2xl font-bold">{remaining}g</span>
@@ -76,7 +117,7 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
         </Card>
 
         {calorieTrackingEnabled && calorieGoal ? (
-          <Card>
+          <Card className="cursor-pointer hover:bg-muted/50 active:bg-muted transition-colors" onClick={() => navigate('/chat')}>
             <CardContent className="flex flex-col items-center justify-center p-4">
               <Zap className="h-5 w-5 text-amber-500 mb-1" />
               <span className="text-2xl font-bold">{caloriesRemaining}</span>
@@ -88,7 +129,14 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
             <CardContent className="flex flex-col items-center justify-center p-4">
               <Dumbbell className="h-5 w-5 text-purple-500 mb-1" />
               <span className="text-2xl font-bold">{mpsHits.length}<span className="text-base font-normal text-muted-foreground">/3</span></span>
-              <span className="text-xs text-muted-foreground">MPS hits</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {mpsHits.length > 0 ? (
+                  <>
+                    <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
+                    {mpsWindowStatus.label}
+                  </>
+                ) : 'MPS hits'}
+              </span>
             </CardContent>
           </Card>
         ) : (
@@ -106,7 +154,14 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
             <CardContent className="flex flex-col items-center justify-center p-4">
               <Dumbbell className="h-5 w-5 text-purple-500 mb-1" />
               <span className="text-2xl font-bold">{mpsHits.length}<span className="text-base font-normal text-muted-foreground">/3</span></span>
-              <span className="text-xs text-muted-foreground">MPS hits</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {mpsHits.length > 0 ? (
+                  <>
+                    <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
+                    {mpsWindowStatus.label}
+                  </>
+                ) : 'MPS hits'}
+              </span>
             </CardContent>
           </Card>
         ) : calorieTrackingEnabled && calorieGoal ? (
@@ -144,7 +199,7 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
           <h3 className="text-sm font-medium text-muted-foreground">Today's Entries</h3>
           <div className="space-y-2">
             {entries.slice().reverse().map((entry) => (
-              <Card key={entry.id} variant="dark">
+              <Card key={entry.id}>
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center">
@@ -153,8 +208,8 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium text-sm text-white">{entry.foodName}</p>
-                      <p className="text-xs text-white/50">
+                      <p className="font-medium text-sm">{entry.foodName}</p>
+                      <p className="text-xs text-muted-foreground">
                         <span className="capitalize">{entry.source}</span>
                         {calorieTrackingEnabled && entry.calories ? (
                           <span> · {entry.calories} kcal</span>
