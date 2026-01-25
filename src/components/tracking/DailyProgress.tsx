@@ -2,8 +2,38 @@ import { useMemo } from 'react';
 import { Flame, Target, TrendingUp, Zap, Dumbbell } from 'lucide-react';
 import { ProgressRing } from './ProgressRing';
 import { Card, CardContent } from '@/components/ui/card';
-import { calculateMPSHits } from '@/lib/utils';
+import { calculateMPSHits, cn } from '@/lib/utils';
 import type { FoodEntry, StreakInfo } from '@/types';
+
+function getMPSWindowStatus(lastHitTime: Date | null): {
+  minutesSince: number | null;
+  label: string;
+  dotColor: string;
+} {
+  if (!lastHitTime) {
+    return { minutesSince: null, label: 'Ready', dotColor: 'bg-green-500' };
+  }
+
+  const now = new Date();
+  const minutesSince = Math.floor((now.getTime() - lastHitTime.getTime()) / 60000);
+
+  if (minutesSince < 90) {
+    return { minutesSince, label: formatTimeSince(minutesSince), dotColor: 'bg-orange-500' };
+  } else if (minutesSince < 120) {
+    return { minutesSince, label: formatTimeSince(minutesSince), dotColor: 'bg-yellow-500' };
+  } else {
+    return { minutesSince, label: formatTimeSince(minutesSince), dotColor: 'bg-green-500' };
+  }
+}
+
+function formatTimeSince(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) {
+    return `${mins}m`;
+  }
+  return `${hours}h ${mins}m`;
+}
 
 interface DailyProgressProps {
   entries: FoodEntry[];
@@ -29,6 +59,14 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
     () => mpsTrackingEnabled ? calculateMPSHits(entries) : [],
     [entries, mpsTrackingEnabled]
   );
+
+  const lastMPSHitTime = useMemo(() => {
+    if (mpsHits.length === 0) return null;
+    const lastHit = mpsHits[mpsHits.length - 1];
+    return lastHit.consumedAt || lastHit.createdAt;
+  }, [mpsHits]);
+
+  const mpsWindowStatus = getMPSWindowStatus(lastMPSHitTime);
 
   const remaining = Math.max(goal - totalProtein, 0);
   const caloriesRemaining = calorieGoal ? Math.max(calorieGoal - totalCalories, 0) : 0;
@@ -86,9 +124,14 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
         ) : mpsTrackingEnabled ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center p-4">
-              <Dumbbell className="h-5 w-5 text-purple-500 mb-1" />
+              <div className="flex items-center gap-1.5 mb-1">
+                <Dumbbell className="h-5 w-5 text-purple-500" />
+                <span className={cn('w-2 h-2 rounded-full', mpsWindowStatus.dotColor)} />
+              </div>
               <span className="text-2xl font-bold">{mpsHits.length}<span className="text-base font-normal text-muted-foreground">/3</span></span>
-              <span className="text-xs text-muted-foreground">MPS hits</span>
+              <span className="text-xs text-muted-foreground">
+                {mpsHits.length > 0 ? mpsWindowStatus.label : 'MPS hits'}
+              </span>
             </CardContent>
           </Card>
         ) : (
@@ -104,9 +147,14 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
         {calorieTrackingEnabled && calorieGoal && mpsTrackingEnabled ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center p-4">
-              <Dumbbell className="h-5 w-5 text-purple-500 mb-1" />
+              <div className="flex items-center gap-1.5 mb-1">
+                <Dumbbell className="h-5 w-5 text-purple-500" />
+                <span className={cn('w-2 h-2 rounded-full', mpsWindowStatus.dotColor)} />
+              </div>
               <span className="text-2xl font-bold">{mpsHits.length}<span className="text-base font-normal text-muted-foreground">/3</span></span>
-              <span className="text-xs text-muted-foreground">MPS hits</span>
+              <span className="text-xs text-muted-foreground">
+                {mpsHits.length > 0 ? mpsWindowStatus.label : 'MPS hits'}
+              </span>
             </CardContent>
           </Card>
         ) : calorieTrackingEnabled && calorieGoal ? (
