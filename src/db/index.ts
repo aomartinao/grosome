@@ -346,3 +346,7 @@ export async function deleteChatMessage(id: number): Promise<void> {
     updatedAt: new Date().toISOString(),
   } as unknown as Partial<ChatMessage>);
 }
+
+export async function clearAllChatMessages(): Promise<void> {
+  await db.chatMessages.clear();
+}
