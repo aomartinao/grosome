@@ -41,8 +41,8 @@ export function MessageBubble({
           isUser
             ? 'bg-primary text-primary-foreground rounded-br-md'
             : isSystem
-            ? 'bg-muted text-muted-foreground text-sm'
-            : 'bg-card border rounded-bl-md'
+            ? 'bg-muted text-foreground/80 text-sm'
+            : 'bg-card border text-foreground rounded-bl-md'
         )}
       >
         {message.isLoading ? (
