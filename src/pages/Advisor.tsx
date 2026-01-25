@@ -223,7 +223,7 @@ export function Advisor() {
       // Normal welcome
       const greeting = nickname ? `Hey ${nickname}! ` : 'Hey! ';
       queueMessages([
-        `${greeting}You have ${remaining}g protein left today. I can:\n\n• **Suggest your next meal** - based on time & preferences\n• **Evaluate a food choice** - "Is Greek yogurt good right now?"\n• **Analyze a menu photo** - I'll pick the best protein options\n• **Answer nutrition questions**\n\nWhat can I help with?`
+        `${greeting}You have ${remaining}g protein left today. Ask me to suggest a meal, evaluate a food choice, or analyze a menu photo!`
       ]);
     }
   }, [initialized, settings.advisorOnboarded, remaining, nickname, queueMessages]);
@@ -338,7 +338,7 @@ export function Advisor() {
       const messagesToQueue = [];
       if (reaction) messagesToQueue.push(reaction);
       messagesToQueue.push(
-        `${greeting}I'm all set! You have ${remaining}g protein left today.\n\nI can:\n• **Suggest your next meal**\n• **Evaluate a food choice**\n• **Analyze a menu photo**\n• **Answer nutrition questions**\n\n_You can update your preferences anytime in Settings._\n\nWhat sounds good?`
+        `${greeting}I'm all set! You have ${remaining}g protein left today. Ask me to suggest a meal, evaluate a food choice, or analyze a menu photo!\n\n_You can update your preferences anytime in Settings._`
       );
       queueMessages(messagesToQueue);
     }

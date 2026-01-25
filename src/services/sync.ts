@@ -687,40 +687,46 @@ async function syncDailyGoals(
 
 /**
  * Sync settings bidirectionally
- * 1. Pull settings from cloud (cloud wins for goals/theme)
- * 2. Keep local API key if set (security - don't overwrite user's key)
+ * 1. Pull settings from cloud
+ * 2. Merge: cloud wins, but keep local values for sensitive/complex fields if cloud is empty
  * 3. Push merged settings back to cloud
  */
 async function syncSettingsBidirectional(userId: string): Promise<boolean> {
   try {
     // Get local settings
     const localSettings = await getUserSettings();
-    const localApiKey = localSettings?.claudeApiKey;
+    console.log('[Sync] Local settings before sync:', localSettings);
 
     // Pull from cloud
     const cloudSettings = await pullSettingsFromCloud(userId);
     console.log('[Sync] Cloud settings:', cloudSettings);
-    console.log('[Sync] Local settings:', localSettings);
 
     if (cloudSettings) {
-      // Merge: cloud wins, but keep local API key if set
+      // Merge: cloud wins for most fields, but preserve local values if cloud is empty/null
       const mergedSettings: UserSettings = {
         ...cloudSettings,
-        claudeApiKey: localApiKey || cloudSettings.claudeApiKey,
+        // Keep local API key if set (security)
+        claudeApiKey: localSettings?.claudeApiKey || cloudSettings.claudeApiKey,
+        // Keep local dietary preferences if cloud doesn't have them
+        dietaryPreferences: cloudSettings.dietaryPreferences || localSettings?.dietaryPreferences,
+        // Keep local onboarding state if cloud doesn't have it
+        advisorOnboardingStarted: cloudSettings.advisorOnboardingStarted || localSettings?.advisorOnboardingStarted,
+        logWelcomeShown: cloudSettings.logWelcomeShown || localSettings?.logWelcomeShown,
       };
 
       // Save merged settings locally
       await saveUserSettings(mergedSettings);
-      console.log('[Sync] Settings pulled and merged from cloud:', mergedSettings);
-    } else {
-      console.log('[Sync] No cloud settings found, keeping local');
-    }
+      console.log('[Sync] Settings merged and saved locally:', mergedSettings);
 
-    // Push current settings to cloud (ensures cloud has latest)
-    const currentSettings = await getUserSettings();
-    if (currentSettings) {
-      await pushSettingsToCloud(userId, currentSettings);
-      console.log('[Sync] Settings pushed to cloud');
+      // Push merged settings to cloud (ensures cloud has the combined state)
+      await pushSettingsToCloud(userId, mergedSettings);
+      console.log('[Sync] Merged settings pushed to cloud');
+    } else {
+      console.log('[Sync] No cloud settings found, pushing local to cloud');
+      // No cloud settings, push local to establish them
+      if (localSettings) {
+        await pushSettingsToCloud(userId, localSettings);
+      }
     }
 
     return true;
@@ -839,12 +845,17 @@ export async function pushSettingsToCloud(userId: string, settings: UserSettings
       default_goal: settings.defaultGoal,
       calorie_goal: settings.calorieGoal ?? null,
       calorie_tracking_enabled: settings.calorieTrackingEnabled ?? false,
+      mps_tracking_enabled: settings.mpsTrackingEnabled ?? false,
       theme: settings.theme,
       claude_api_key: settings.claudeApiKey ?? null,
       dietary_preferences: settings.dietaryPreferences ?? null,
       advisor_onboarded: settings.advisorOnboarded ?? false,
+      advisor_onboarding_started: settings.advisorOnboardingStarted ?? false,
+      log_welcome_shown: settings.logWelcomeShown ?? false,
       updated_at: new Date().toISOString(),
     };
+
+    console.log('[Sync] Pushing settings to cloud:', dbSettings);
 
     const { error } = await supabase
       .from('user_settings')
@@ -857,7 +868,8 @@ export async function pushSettingsToCloud(userId: string, settings: UserSettings
       return false;
     }
     return true;
-  } catch {
+  } catch (err) {
+    console.error('[Sync] Exception pushing settings:', err);
     return false;
   }
 }
@@ -879,16 +891,22 @@ export async function pullSettingsFromCloud(userId: string): Promise<UserSetting
     }
     if (!data) return null;
 
+    console.log('[Sync] Pulled settings from cloud:', data);
+
     return {
       defaultGoal: data.default_goal,
       calorieGoal: data.calorie_goal ?? undefined,
-      calorieTrackingEnabled: data.calorie_tracking_enabled,
+      calorieTrackingEnabled: data.calorie_tracking_enabled ?? false,
+      mpsTrackingEnabled: data.mps_tracking_enabled ?? false,
       theme: data.theme as UserSettings['theme'],
       claudeApiKey: data.claude_api_key ?? undefined,
       dietaryPreferences: data.dietary_preferences ?? undefined,
-      advisorOnboarded: data.advisor_onboarded ?? undefined,
+      advisorOnboarded: data.advisor_onboarded ?? false,
+      advisorOnboardingStarted: data.advisor_onboarding_started ?? false,
+      logWelcomeShown: data.log_welcome_shown ?? false,
     };
-  } catch {
+  } catch (err) {
+    console.error('[Sync] Exception pulling settings:', err);
     return null;
   }
 }
