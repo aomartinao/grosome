@@ -1,12 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIAnalysisResult, ConfidenceLevel, ConsumedAtInfo } from '@/types';
 
-function buildFoodAnalysisPrompt(nickname?: string): string {
-  const greeting = nickname ? `You're helping ${nickname} track their protein intake. Use their name occasionally to make it personal and friendly.\n\n` : '';
-
+function buildFoodAnalysisPrompt(): string {
   return `You are a nutrition expert analyzing food images and descriptions to estimate protein AND calorie content for the ENTIRE item being consumed.
 
-${greeting}For the given food, provide:
+For the given food, provide:
 1. A clear food name/description (include package size if visible)
 2. Estimated protein content in grams FOR THE WHOLE ITEM/PACKAGE
 3. Estimated calorie content in kcal FOR THE WHOLE ITEM/PACKAGE
@@ -54,7 +52,7 @@ Respond in JSON format only:
 
 export async function analyzeFood(
   apiKey: string,
-  input: { text?: string; imageBase64?: string; nickname?: string }
+  input: { text?: string; imageBase64?: string }
 ): Promise<AIAnalysisResult> {
   const client = new Anthropic({
     apiKey,
@@ -95,7 +93,7 @@ export async function analyzeFood(
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 500,
-    system: buildFoodAnalysisPrompt(input.nickname),
+    system: buildFoodAnalysisPrompt(),
     messages: [
       {
         role: 'user',

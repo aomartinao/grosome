@@ -1,4 +1,4 @@
-import { Check, Edit2, CheckCircle } from 'lucide-react';
+import { Check, Edit2, CheckCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { FoodEntry } from '@/types';
@@ -8,6 +8,7 @@ interface FoodCardProps {
   entry: Partial<FoodEntry>;
   onConfirm?: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
   showActions?: boolean;
   showCalories?: boolean;
   isConfirmed?: boolean;
@@ -17,6 +18,7 @@ export function FoodCard({
   entry,
   onConfirm,
   onEdit,
+  onDelete,
   showActions = true,
   showCalories = false,
   isConfirmed = false,
@@ -84,11 +86,33 @@ export function FoodCard({
         </div>
       )}
 
-      {/* Confirmed state */}
-      {isConfirmed && (
-        <div className="flex items-center justify-center gap-2 mt-4 py-2 rounded-xl bg-green-50 text-green-600">
-          <CheckCircle className="h-4 w-4" />
-          <span className="text-sm font-medium">Added to today</span>
+      {/* Confirmed state - show edit/delete buttons */}
+      {isConfirmed && showActions && (
+        <div className="flex gap-2 mt-4">
+          <div className="flex items-center gap-1.5 flex-1 text-green-600 text-sm">
+            <CheckCircle className="h-4 w-4" />
+            <span className="font-medium">Added</span>
+          </div>
+          {onEdit && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-2 text-muted-foreground hover:text-foreground"
+              onClick={onEdit}
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-2 text-muted-foreground hover:text-destructive"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       )}
     </div>

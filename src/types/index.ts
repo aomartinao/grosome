@@ -26,6 +26,7 @@ export interface UserSettings {
   dietaryPreferences?: DietaryPreferences;  // for Food Buddy
   advisorOnboarded?: boolean;               // whether user completed advisor onboarding
   advisorOnboardingStarted?: boolean;       // whether user has started onboarding (enables settings)
+  logWelcomeShown?: boolean;                // whether the log welcome message has been shown
 }
 
 export interface DailyGoal {
