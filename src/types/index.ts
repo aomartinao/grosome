@@ -20,6 +20,7 @@ export interface UserSettings {
   calorieGoal?: number;      // daily calorie target in kcal
   proteinTrackingEnabled?: boolean;  // default true
   calorieTrackingEnabled?: boolean;
+  mpsTrackingEnabled?: boolean;      // Muscle Protein Synthesis hits tracking
   theme: 'light' | 'dark' | 'system';
   claudeApiKey?: string;     // user provides their own key
 }

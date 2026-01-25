@@ -27,6 +27,7 @@ export function Dashboard() {
         goal={settings.defaultGoal}
         calorieGoal={settings.calorieGoal}
         calorieTrackingEnabled={settings.calorieTrackingEnabled}
+        mpsTrackingEnabled={settings.mpsTrackingEnabled}
         streak={streak}
       />
     </div>

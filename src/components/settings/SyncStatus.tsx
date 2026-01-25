@@ -102,73 +102,58 @@ export function SyncStatus() {
   // Logged in
   return (
     <Card variant="default">
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Cloud className="h-5 w-5 text-primary" />
-          Cloud Sync
-        </CardTitle>
-        <CardDescription className="flex items-center gap-1">
-          <span>Signed in as</span>
-          <span className="font-medium text-foreground">{user.email}</span>
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Sync status */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-          <div className="flex items-center gap-2">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Cloud className="h-5 w-5 text-primary" />
+            Cloud Sync
+          </CardTitle>
+          <div className="flex items-center gap-1">
             {isSyncing ? (
-              <>
-                <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                <span className="text-sm">Syncing...</span>
-              </>
+              <RefreshCw className="h-4 w-4 animate-spin text-primary" />
             ) : syncError ? (
-              <>
-                <AlertCircle className="h-4 w-4 text-destructive" />
-                <span className="text-sm text-destructive">{syncError}</span>
-              </>
+              <AlertCircle className="h-4 w-4 text-destructive" />
             ) : lastSyncTime ? (
-              <>
-                <Check className="h-4 w-4 text-green-500" />
-                <span className="text-sm">
-                  Last synced {formatDistanceToNow(lastSyncTime, { addSuffix: true })}
-                </span>
-              </>
-            ) : (
-              <>
-                <Cloud className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Not synced yet</span>
-              </>
-            )}
+              <Check className="h-4 w-4 text-green-500" />
+            ) : null}
+            <span className="text-xs text-muted-foreground truncate max-w-[120px]">{user.email}</span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-0">
+        {/* Status + Actions in one row */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">
+            {isSyncing ? 'Syncing...' : syncError ? syncError : lastSyncTime ? `Synced ${formatDistanceToNow(lastSyncTime, { addSuffix: true })}` : 'Not synced'}
+          </span>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={isSyncing}
+              className="h-7 px-2"
+            >
+              <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-muted-foreground hover:text-destructive"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-3 w-3" />
+            </Button>
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={handleSync}
-            disabled={isSyncing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-            Sync Now
-          </Button>
-          <Button
-            variant="ghost"
-            className="text-muted-foreground hover:text-destructive"
-            onClick={handleSignOut}
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Force sync option for troubleshooting */}
+        {/* Force sync - smaller */}
         <button
           onClick={handleForceSync}
           disabled={isSyncing}
           className="text-xs text-muted-foreground hover:text-foreground underline"
         >
-          Force full re-sync (if items are missing)
+          Force full re-sync
         </button>
       </CardContent>
     </Card>

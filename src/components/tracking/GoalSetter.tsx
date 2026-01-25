@@ -3,7 +3,6 @@ import { Target, Zap } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -38,98 +37,68 @@ export function GoalSetter({ currentGoal, currentCalorieGoal, calorieTrackingEna
     }
   };
 
-  const presets = [100, 120, 150, 180, 200];
-  const caloriePresets = [1500, 1800, 2000, 2200, 2500];
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Target className="h-4 w-4" />
-          Goal: {currentGoal}g
+        <Button variant="outline" size="sm" className="gap-1 h-8 text-xs">
+          <Target className="h-3 w-3" />
+          {currentGoal}g
           {calorieTrackingEnabled && currentCalorieGoal && (
-            <span className="text-amber-600">· {currentCalorieGoal} kcal</span>
+            <span className="text-amber-600">· {currentCalorieGoal}</span>
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xs">
         <DialogHeader>
-          <DialogTitle>Set Daily Goals</DialogTitle>
-          <DialogDescription>
-            Choose your daily nutrition targets.
-          </DialogDescription>
+          <DialogTitle className="text-base">Daily Goals</DialogTitle>
         </DialogHeader>
-        <div className="space-y-6 py-4">
+        <div className="space-y-4 py-2">
           {/* Protein Goal */}
-          <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Target className="h-4 w-4 text-primary" />
-              Protein Goal
+              Protein
             </div>
-            <div className="flex flex-wrap gap-2">
-              {presets.map((preset) => (
-                <Button
-                  key={preset}
-                  variant={goal === preset.toString() ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setGoal(preset.toString())}
-                >
-                  {preset}g
-                </Button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Input
                 type="number"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 min={1}
                 max={500}
-                className="w-24"
+                className="w-16 h-8 text-sm"
               />
-              <span className="text-muted-foreground">grams per day</span>
+              <span className="text-xs text-muted-foreground">g</span>
             </div>
           </div>
 
           {/* Calorie Goal */}
           {calorieTrackingEnabled && (
-            <div className="space-y-3 pt-2 border-t">
+            <div className="flex items-center justify-between gap-3 pt-2 border-t">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Zap className="h-4 w-4 text-amber-500" />
-                Calorie Goal
+                Calories
               </div>
-              <div className="flex flex-wrap gap-2">
-                {caloriePresets.map((preset) => (
-                  <Button
-                    key={preset}
-                    variant={calorieGoal === preset.toString() ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCalorieGoal(preset.toString())}
-                  >
-                    {preset}
-                  </Button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <Input
                   type="number"
                   value={calorieGoal}
                   onChange={(e) => setCalorieGoal(e.target.value)}
                   min={500}
                   max={10000}
-                  className="w-24"
+                  className="w-16 h-8 text-sm"
                   placeholder="2000"
                 />
-                <span className="text-muted-foreground">kcal per day</span>
+                <span className="text-xs text-muted-foreground">kcal</span>
               </div>
             </div>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>Save Goals</Button>
+          <Button size="sm" onClick={handleSave}>Save</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
