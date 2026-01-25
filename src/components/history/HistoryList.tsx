@@ -139,6 +139,7 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
               {day.entries.map((entry) => (
                 <SwipeableRow
                   key={entry.id}
+                  itemName={entry.foodName}
                   onEdit={onEdit ? () => handleEditClick(entry) : undefined}
                   onDelete={entry.id ? () => onDelete(entry.id!) : undefined}
                   className="bg-card shadow-sm"

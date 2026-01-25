@@ -304,6 +304,7 @@ export function DailyProgress({
               {entries.slice().reverse().map((entry) => (
                 <SwipeableRow
                   key={entry.id}
+                  itemName={entry.foodName}
                   onEdit={isToday && onEditEntry ? () => onEditEntry(entry) : undefined}
                   onDelete={isToday && onDeleteEntry && entry.id ? () => onDeleteEntry(entry.id!) : undefined}
                 >

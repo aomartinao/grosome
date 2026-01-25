@@ -1,37 +1,55 @@
 import { useState, useRef, type ReactNode } from 'react';
 import { Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface SwipeableRowProps {
   children: ReactNode;
   onEdit?: () => void;
   onDelete?: () => void;
   className?: string;
+  itemName?: string;
 }
 
-export function SwipeableRow({ children, onEdit, onDelete, className }: SwipeableRowProps) {
+export function SwipeableRow({ children, onEdit, onDelete, className, itemName }: SwipeableRowProps) {
   const [offsetX, setOffsetX] = useState(0);
   const [isRevealed, setIsRevealed] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const startXRef = useRef(0);
   const currentXRef = useRef(0);
-  const isDraggingRef = useRef(false);
+  const hasMoved = useRef(false);
 
   const ACTION_WIDTH = onEdit && onDelete ? 120 : 60;
   const THRESHOLD = ACTION_WIDTH / 2;
-  const DELETE_TRIGGER_THRESHOLD = ACTION_WIDTH + 60; // Extra 60px triggers delete
+  const DELETE_TRIGGER_THRESHOLD = ACTION_WIDTH + 80;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startXRef.current = e.touches[0].clientX;
     currentXRef.current = offsetX;
-    isDraggingRef.current = true;
+    setIsDragging(true);
+    hasMoved.current = false;
     setIsDeleting(false);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDraggingRef.current) return;
+    if (!isDragging) return;
 
     const deltaX = e.touches[0].clientX - startXRef.current;
+
+    if (Math.abs(deltaX) > 5) {
+      hasMoved.current = true;
+    }
+
     let newOffset = currentXRef.current + deltaX;
 
     // Only allow swiping left (negative values)
@@ -42,7 +60,7 @@ export function SwipeableRow({ children, onEdit, onDelete, className }: Swipeabl
     // Apply rubber band effect past the action width
     if (newOffset < -ACTION_WIDTH) {
       const overswipe = Math.abs(newOffset) - ACTION_WIDTH;
-      const dampedOverswipe = Math.sqrt(overswipe) * 8; // Rubber band formula
+      const dampedOverswipe = Math.sqrt(overswipe) * 8;
       newOffset = -(ACTION_WIDTH + dampedOverswipe);
 
       // Check if we've reached delete trigger threshold
@@ -62,15 +80,14 @@ export function SwipeableRow({ children, onEdit, onDelete, className }: Swipeabl
   };
 
   const handleTouchEnd = () => {
-    isDraggingRef.current = false;
+    setIsDragging(false);
 
-    // If we reached delete threshold, trigger delete
+    // If we reached delete threshold, show confirmation
     if (isDeleting && onDelete) {
-      // Animate out then delete
-      setOffsetX(-window.innerWidth);
-      setTimeout(() => {
-        onDelete();
-      }, 200);
+      setShowDeleteDialog(true);
+      // Reset position
+      setOffsetX(-ACTION_WIDTH);
+      setIsDeleting(false);
       return;
     }
 
@@ -89,58 +106,114 @@ export function SwipeableRow({ children, onEdit, onDelete, className }: Swipeabl
     setIsRevealed(false);
   };
 
+  const handleClick = () => {
+    // Desktop click toggle - only if we didn't drag
+    if (!hasMoved.current && (onEdit || onDelete)) {
+      if (isRevealed) {
+        handleClose();
+      } else {
+        setOffsetX(-ACTION_WIDTH);
+        setIsRevealed(true);
+      }
+    }
+  };
+
   const handleAction = (action: () => void) => {
     action();
     handleClose();
   };
 
-  return (
-    <div className={cn('relative overflow-hidden rounded-xl', className)}>
-      {/* Action buttons - only visible when revealed */}
-      {isRevealed && (
-        <div
-          className="absolute inset-y-0 right-0 flex"
-          style={{ opacity: Math.min(1, Math.abs(offsetX) / 60) }}
-        >
-          {onEdit && (
-            <button
-              className="w-[60px] flex items-center justify-center bg-blue-500 text-white active:bg-blue-600"
-              onClick={() => handleAction(onEdit)}
-            >
-              <Edit2 className="h-5 w-5" />
-            </button>
-          )}
-          {onDelete && (
-            <button
-              className={cn(
-                "w-[60px] flex items-center justify-center text-white transition-colors",
-                isDeleting ? "bg-red-600" : "bg-destructive active:bg-destructive/90"
-              )}
-              onClick={() => handleAction(onDelete)}
-            >
-              <Trash2 className="h-5 w-5" />
-            </button>
-          )}
-        </div>
-      )}
+  const handleDeleteClick = () => {
+    setShowDeleteDialog(true);
+  };
 
-      {/* Main content */}
-      <div
-        className={cn(
-          "relative bg-muted/50",
-          isDraggingRef.current ? "" : "transition-transform duration-200 ease-out"
+  const handleConfirmDelete = () => {
+    setShowDeleteDialog(false);
+    if (onDelete) {
+      // Animate out then delete
+      setOffsetX(-window.innerWidth);
+      setTimeout(() => {
+        onDelete();
+      }, 200);
+    }
+  };
+
+  // Calculate the width of the delete button when in delete territory
+  const deleteButtonWidth = isDeleting
+    ? Math.abs(offsetX) - (onEdit ? 60 : 0)
+    : 60;
+
+  return (
+    <>
+      <div className={cn('relative overflow-hidden rounded-xl', className)}>
+        {/* Action buttons - only visible when revealed */}
+        {isRevealed && (
+          <div
+            className="absolute inset-y-0 right-0 flex"
+            style={{ opacity: Math.min(1, Math.abs(offsetX) / 60) }}
+          >
+            {onEdit && !isDeleting && (
+              <button
+                className="w-[60px] flex items-center justify-center bg-blue-500 text-white active:bg-blue-600"
+                onClick={() => handleAction(onEdit)}
+              >
+                <Edit2 className="h-5 w-5" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                className={cn(
+                  "flex items-center justify-center text-white transition-all",
+                  isDeleting ? "bg-red-600" : "bg-destructive active:bg-destructive/90"
+                )}
+                style={{ width: `${deleteButtonWidth}px` }}
+                onClick={handleDeleteClick}
+              >
+                <Trash2 className="h-5 w-5" />
+                {isDeleting && <span className="ml-2 text-sm font-medium">Delete</span>}
+              </button>
+            )}
+          </div>
         )}
-        style={{
-          transform: `translateX(${offsetX}px)`,
-          transitionDuration: isDraggingRef.current ? '0ms' : '200ms'
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={isRevealed ? handleClose : undefined}
-      >
-        {children}
+
+        {/* Main content */}
+        <div
+          className="relative bg-muted/50 cursor-pointer"
+          style={{
+            transform: `translateX(${offsetX}px)`,
+            transition: isDragging ? 'none' : 'transform 200ms ease-out'
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onClick={handleClick}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Entry</DialogTitle>
+            <DialogDescription>
+              {itemName
+                ? `Are you sure you want to delete "${itemName}"?`
+                : 'Are you sure you want to delete this entry?'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
