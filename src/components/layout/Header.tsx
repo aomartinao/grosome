@@ -19,8 +19,9 @@ import {
 export function Header() {
   const location = useLocation();
   const { user, signOut } = useAuthStore();
-  const { clearMessages } = useStore();
+  const { clearMessages, clearAdvisorMessages } = useStore();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [advisorClearDialogOpen, setAdvisorClearDialogOpen] = useState(false);
 
   const getTitle = () => {
     switch (location.pathname) {
@@ -41,11 +42,17 @@ export function Header() {
 
   const isSettingsPage = location.pathname === '/settings';
   const isChatPage = location.pathname === '/chat';
+  const isAdvisorPage = location.pathname === '/advisor';
 
   const handleClearChat = async () => {
     await clearAllChatMessages();
     clearMessages();
     setClearDialogOpen(false);
+  };
+
+  const handleClearAdvisor = () => {
+    clearAdvisorMessages();
+    setAdvisorClearDialogOpen(false);
   };
 
   const renderHeaderAction = () => {
@@ -56,6 +63,20 @@ export function Header() {
           size="icon"
           className="rounded-full hover:bg-muted text-muted-foreground hover:text-destructive"
           onClick={() => setClearDialogOpen(true)}
+        >
+          <Trash2 className="h-5 w-5" />
+          <span className="sr-only">Clear chat</span>
+        </Button>
+      );
+    }
+
+    if (isAdvisorPage) {
+      return (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full hover:bg-muted text-muted-foreground hover:text-destructive"
+          onClick={() => setAdvisorClearDialogOpen(true)}
         >
           <Trash2 className="h-5 w-5" />
           <span className="sr-only">Clear chat</span>
@@ -107,6 +128,23 @@ export function Header() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleClearChat} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={advisorClearDialogOpen} onOpenChange={setAdvisorClearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will clear your current Food Buddy conversation.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearAdvisor} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Clear
             </AlertDialogAction>
           </AlertDialogFooter>

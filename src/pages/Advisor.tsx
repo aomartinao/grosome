@@ -467,9 +467,9 @@ export function Advisor() {
   const showOnboardingControls = isOnboarding && !isTyping;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-[calc(100vh-8rem)]">
       {/* Scrollable messages area */}
-      <div className="flex-1 overflow-y-auto p-4 pb-2">
+      <div className="flex-1 overflow-y-auto p-4 pb-2 min-h-0">
         {messages.map((message, index) => (
           <MessageBubble
             key={message.syncId}
