@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { useSettings } from '@/hooks/useProteinData';
@@ -133,6 +133,14 @@ export function Advisor() {
   const isProcessingRef = useRef(false);
   const [queueVersion, setQueueVersion] = useState(0); // Trigger re-render when queue changes
 
+  // Reset processing state when messages are cleared (useLayoutEffect to run before other effects)
+  useLayoutEffect(() => {
+    if (messages.length === 0 && !initialized) {
+      messageQueueRef.current = [];
+      isProcessingRef.current = false;
+    }
+  }, [messages.length, initialized]);
+
   const isOnboarding = onboardingStep >= 0 && onboardingStep < ONBOARDING_STEPS.length;
   const currentStepData = isOnboarding ? ONBOARDING_STEPS[onboardingStep] : null;
 
@@ -207,13 +215,20 @@ export function Advisor() {
   useEffect(() => {
     if (!settingsLoaded) return; // Wait for settings to load from IndexedDB
     if (initialized) return;
-
-    // Don't start onboarding if advisorOnboarded is undefined (settings still loading)
-    if (settings.advisorOnboarded === undefined) return;
-
     setInitialized(true);
 
-    if (!settings.advisorOnboarded) {
+    // Check if user has completed onboarding (true means done, false/undefined means not done)
+    if (settings.advisorOnboarded) {
+      // Returning user - show a simple greeting
+      const greetings = [
+        'How can I help today?',
+        'What can I do for you?',
+        "What's on your mind?",
+        'Ready when you are!',
+      ];
+      const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+      queueMessages([randomGreeting]);
+    } else {
       // Start onboarding - mark as started so settings become editable
       if (!settings.advisorOnboardingStarted) {
         updateSettings({ advisorOnboardingStarted: true });
@@ -224,16 +239,6 @@ export function Advisor() {
         `${greeting}Quick intro so I can give you useful suggestions.`,
         ONBOARDING_STEPS[0].question,
       ]);
-    } else {
-      // Returning user - show a simple greeting
-      const greetings = [
-        'How can I help today?',
-        'What can I do for you?',
-        "What's on your mind?",
-        'Ready when you are!',
-      ];
-      const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-      queueMessages([randomGreeting]);
     }
   }, [settingsLoaded, initialized, settings.advisorOnboarded, nickname, queueMessages, settings.advisorOnboardingStarted, updateSettings]);
 

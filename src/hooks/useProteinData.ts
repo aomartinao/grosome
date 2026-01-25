@@ -5,7 +5,6 @@ import {
   getEntriesForDate,
   getEntriesForDateRange,
   deleteFoodEntry,
-  getUserSettings,
   saveUserSettings,
   getAllDailyGoals,
   getDailyGoal,
@@ -58,19 +57,13 @@ export function useDailyGoals(): Map<string, number> {
 }
 
 export function useSettings() {
-  const { settings, setSettings } = useStore();
+  const { settings, settingsLoaded, setSettings, loadSettingsFromDb } = useStore();
   const { syncSettings, user } = useAuthStore();
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
-  // Load settings from IndexedDB on mount
+  // Load settings from IndexedDB on mount (atomic update in store)
   useEffect(() => {
-    getUserSettings().then((dbSettings) => {
-      if (dbSettings) {
-        setSettings(dbSettings);
-      }
-      setSettingsLoaded(true);
-    });
-  }, [setSettings]);
+    loadSettingsFromDb();
+  }, [loadSettingsFromDb]);
 
   const updateSettings = useCallback(
     async (newSettings: Partial<typeof settings>) => {

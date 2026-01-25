@@ -11,7 +11,9 @@ import {
 interface AppState {
   // User Settings
   settings: UserSettings;
+  settingsLoaded: boolean;
   setSettings: (settings: Partial<UserSettings>) => void;
+  loadSettingsFromDb: () => Promise<void>;
   reloadSettings: () => Promise<void>;
 
   // Chat Messages (persisted to IndexedDB)
@@ -57,16 +59,33 @@ export const useStore = create<AppState>()(
         theme: 'system',
         claudeApiKey: undefined,
       },
+      settingsLoaded: false,
       setSettings: (newSettings) =>
         set((state) => ({
           settings: { ...state.settings, ...newSettings },
         })),
 
+      loadSettingsFromDb: async () => {
+        if (get().settingsLoaded) return; // Already loaded
+        try {
+          const dbSettings = await getUserSettings();
+          // Update settings and settingsLoaded atomically
+          set({
+            settings: dbSettings ? { ...get().settings, ...dbSettings } : get().settings,
+            settingsLoaded: true,
+          });
+          console.log('[Store] Loaded settings from IndexedDB:', dbSettings);
+        } catch (err) {
+          console.error('[Store] Failed to load settings:', err);
+          set({ settingsLoaded: true }); // Mark as loaded even on error
+        }
+      },
+
       reloadSettings: async () => {
         try {
           const dbSettings = await getUserSettings();
           if (dbSettings) {
-            set({ settings: dbSettings });
+            set({ settings: dbSettings, settingsLoaded: true });
             console.log('[Store] Reloaded settings from IndexedDB:', dbSettings);
           } else {
             console.log('[Store] No settings in IndexedDB to reload');
