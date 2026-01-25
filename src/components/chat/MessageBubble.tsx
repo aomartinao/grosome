@@ -13,6 +13,7 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, onConfirm, onEdit, showCalories }: MessageBubbleProps) {
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
+  const isConfirmed = !!message.foodEntrySyncId;
 
   return (
     <div
@@ -55,6 +56,7 @@ export function MessageBubble({ message, onConfirm, onEdit, showCalories }: Mess
                   onConfirm={() => onConfirm?.(message.foodEntry)}
                   onEdit={() => onEdit?.(message.foodEntry)}
                   showCalories={showCalories}
+                  isConfirmed={isConfirmed}
                 />
               </div>
             )}

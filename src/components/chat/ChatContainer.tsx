@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
 import { useStore } from '@/store/useStore';
 import { triggerSync } from '@/store/useAuthStore';
-import { analyzeFood } from '@/services/ai/client';
+import { analyzeFood, refineAnalysis } from '@/services/ai/client';
 import { addFoodEntry } from '@/db';
 import { getToday } from '@/lib/utils';
 import type { ChatMessage, FoodEntry } from '@/types';
@@ -20,21 +22,27 @@ import { Loader2 } from 'lucide-react';
 
 export function ChatContainer() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const {
     messages,
     messagesLoaded,
     addMessage,
     updateMessage,
+    clearMessages,
     loadMessages,
     settings,
     isAnalyzing,
     setIsAnalyzing,
+    pendingMessageSyncId,
+    setPendingMessageSyncId,
   } = useStore();
 
   const [editingEntry, setEditingEntry] = useState<Partial<FoodEntry> | null>(null);
   const [editProtein, setEditProtein] = useState('');
   const [editCalories, setEditCalories] = useState('');
   const [editName, setEditName] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
   const [editMessageSyncId, setEditMessageSyncId] = useState<string | null>(null);
 
   // Load messages from IndexedDB on mount
@@ -83,6 +91,64 @@ export function ChatContainer() {
       return;
     }
 
+    // Check if this is a follow-up message (refinement of pending entry)
+    const pendingMessage = pendingMessageSyncId
+      ? messages.find((m) => m.syncId === pendingMessageSyncId)
+      : null;
+
+    if (pendingMessageSyncId && pendingMessage?.foodEntry) {
+      // This is a refinement - update the existing analysis
+      setIsAnalyzing(true);
+      try {
+        const originalAnalysis = {
+          foodName: pendingMessage.foodEntry.foodName || '',
+          protein: pendingMessage.foodEntry.protein || 0,
+          calories: pendingMessage.foodEntry.calories || 0,
+          confidence: pendingMessage.foodEntry.confidence || 'low' as const,
+          consumedAt: pendingMessage.foodEntry.consumedAt
+            ? {
+                parsedDate: format(pendingMessage.foodEntry.consumedAt, 'yyyy-MM-dd'),
+                parsedTime: format(pendingMessage.foodEntry.consumedAt, 'HH:mm'),
+              }
+            : undefined,
+        };
+
+        const result = await refineAnalysis(settings.claudeApiKey, originalAnalysis, text);
+
+        // Calculate consumedAt Date from parsed values
+        let consumedAt: Date | undefined;
+        if (result.consumedAt) {
+          const [year, month, day] = result.consumedAt.parsedDate.split('-').map(Number);
+          const [hours, minutes] = result.consumedAt.parsedTime.split(':').map(Number);
+          consumedAt = new Date(year, month - 1, day, hours, minutes);
+        }
+
+        await updateMessage(pendingMessageSyncId, {
+          content: result.reasoning || 'Updated analysis:',
+          foodEntry: {
+            ...pendingMessage.foodEntry,
+            date: result.consumedAt?.parsedDate || pendingMessage.foodEntry.date,
+            foodName: result.foodName,
+            protein: result.protein,
+            calories: result.calories,
+            confidence: result.confidence,
+            consumedAt,
+          },
+        });
+      } catch (error) {
+        await addMessage({
+          syncId: crypto.randomUUID(),
+          type: 'system',
+          content: `Sorry, I couldn't update the analysis. ${error instanceof Error ? error.message : 'Please try again.'}`,
+          timestamp: new Date(),
+        });
+      } finally {
+        setIsAnalyzing(false);
+      }
+      return;
+    }
+
+    // New entry analysis
     const loadingSyncId = crypto.randomUUID();
     await addMessage({
       syncId: loadingSyncId,
@@ -97,19 +163,33 @@ export function ChatContainer() {
     try {
       const result = await analyzeFood(settings.claudeApiKey, { text });
 
+      // Calculate consumedAt Date from parsed values
+      let consumedAt: Date | undefined;
+      let entryDate = getToday();
+      if (result.consumedAt) {
+        const [year, month, day] = result.consumedAt.parsedDate.split('-').map(Number);
+        const [hours, minutes] = result.consumedAt.parsedTime.split(':').map(Number);
+        consumedAt = new Date(year, month - 1, day, hours, minutes);
+        entryDate = result.consumedAt.parsedDate;
+      }
+
       await updateMessage(loadingSyncId, {
         isLoading: false,
         content: result.reasoning || 'Here\'s what I found:',
         foodEntry: {
-          date: getToday(),
+          date: entryDate,
           source: 'text',
           foodName: result.foodName,
           protein: result.protein,
           calories: result.calories,
           confidence: result.confidence,
+          consumedAt,
           createdAt: new Date(),
         },
       });
+
+      // Set this as the pending message for potential follow-ups
+      setPendingMessageSyncId(loadingSyncId);
     } catch (error) {
       await updateMessage(loadingSyncId, {
         isLoading: false,
@@ -155,20 +235,34 @@ export function ChatContainer() {
     try {
       const result = await analyzeFood(settings.claudeApiKey, { imageBase64: imageData });
 
+      // Calculate consumedAt Date from parsed values
+      let consumedAt: Date | undefined;
+      let entryDate = getToday();
+      if (result.consumedAt) {
+        const [year, month, day] = result.consumedAt.parsedDate.split('-').map(Number);
+        const [hours, minutes] = result.consumedAt.parsedTime.split(':').map(Number);
+        consumedAt = new Date(year, month - 1, day, hours, minutes);
+        entryDate = result.consumedAt.parsedDate;
+      }
+
       await updateMessage(loadingSyncId, {
         isLoading: false,
         content: result.reasoning || 'Here\'s what I found:',
         foodEntry: {
-          date: getToday(),
+          date: entryDate,
           source: 'photo',
           foodName: result.foodName,
           protein: result.protein,
           calories: result.calories,
           confidence: result.confidence,
           imageData,
+          consumedAt,
           createdAt: new Date(),
         },
       });
+
+      // Set this as the pending message for potential follow-ups
+      setPendingMessageSyncId(loadingSyncId);
     } catch (error) {
       await updateMessage(loadingSyncId, {
         isLoading: false,
@@ -194,6 +288,7 @@ export function ChatContainer() {
         calories: entry.calories,
         confidence: entry.confidence || 'medium',
         imageData: entry.imageData,
+        consumedAt: entry.consumedAt,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -208,13 +303,12 @@ export function ChatContainer() {
       // Trigger cloud sync
       triggerSync();
 
-      const calorieInfo = settings.calorieTrackingEnabled && entry.calories ? ` and ${entry.calories} kcal` : '';
-      await addMessage({
-        syncId: crypto.randomUUID(),
-        type: 'system',
-        content: `Added ${entry.protein}g protein${calorieInfo} from ${entry.foodName}`,
-        timestamp: new Date(),
-      });
+      // Clear pending message tracking
+      setPendingMessageSyncId(null);
+
+      // Clear messages and navigate to Today tab
+      clearMessages();
+      navigate('/');
     } catch (error) {
       await addMessage({
         syncId: crypto.randomUUID(),
@@ -231,28 +325,44 @@ export function ChatContainer() {
     setEditProtein(entry.protein?.toString() || '0');
     setEditCalories(entry.calories?.toString() || '');
     setEditName(entry.foodName || '');
+
+    // Initialize date/time from entry or current time
+    const now = new Date();
+    const entryTime = entry.consumedAt ? new Date(entry.consumedAt) : now;
+    setEditDate(format(entryTime, 'yyyy-MM-dd'));
+    setEditTime(format(entryTime, 'HH:mm'));
+
     setEditMessageSyncId(messageSyncId || null);
   };
 
   const handleSaveEdit = async () => {
     if (!editingEntry) return;
 
+    // Construct consumedAt from date/time inputs
+    let consumedAt: Date | undefined;
+    let entryDate = editingEntry.date || getToday();
+    if (editDate && editTime) {
+      const [year, month, day] = editDate.split('-').map(Number);
+      const [hours, minutes] = editTime.split(':').map(Number);
+      consumedAt = new Date(year, month - 1, day, hours, minutes);
+      entryDate = editDate;
+    }
+
     const updatedEntry = {
       ...editingEntry,
+      date: entryDate,
       protein: parseInt(editProtein, 10) || 0,
       calories: editCalories ? parseInt(editCalories, 10) : editingEntry.calories,
       foodName: editName || editingEntry.foodName,
+      consumedAt,
     };
 
-    // Update the message if we have the syncId
+    // Update the message if we have the syncId (but don't auto-confirm)
     if (editMessageSyncId) {
       await updateMessage(editMessageSyncId, {
         foodEntry: updatedEntry as FoodEntry,
       });
     }
-
-    // Confirm the edited entry
-    await handleConfirm(updatedEntry as FoodEntry, editMessageSyncId || undefined);
 
     setEditingEntry(null);
     setEditMessageSyncId(null);
@@ -325,12 +435,30 @@ export function ChatContainer() {
                 />
               </div>
             )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Date</label>
+                <Input
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Time</label>
+                <Input
+                  type="time"
+                  value={editTime}
+                  onChange={(e) => setEditTime(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingEntry(null)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit}>Save & Add</Button>
+            <Button onClick={handleSaveEdit}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
