@@ -164,7 +164,7 @@ export function DailyProgress({
       {/* Hero Section - Progress Ring(s) with Navigation Arrows */}
       <div
         className={cn(
-          'flex-1 flex items-center justify-center px-2 py-6',
+          'flex-1 flex flex-col justify-center',
           isToday && 'cursor-pointer'
         )}
         onTouchStart={handleTouchStart}
@@ -172,23 +172,24 @@ export function DailyProgress({
         onTouchEnd={handleTouchEnd}
         onClick={handleHeroClick}
       >
-        {/* Left Arrow */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-12 w-12 rounded-full flex-shrink-0"
-          onClick={(e) => {
-            e.stopPropagation();
-            onPrevDay();
-          }}
-        >
-          <ChevronLeft className="h-7 w-7" />
-        </Button>
+        {/* Rings with arrows - centered together */}
+        <div className="flex items-center justify-center gap-1">
+          {/* Left Arrow */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-full flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPrevDay();
+            }}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
 
-        {/* Progress Rings */}
-        <div className="flex-1 flex flex-col items-center justify-center">
+          {/* Progress Rings */}
           {showDualRings ? (
-            <div className="flex gap-6 items-center">
+            <div className="flex gap-4 items-center">
               <ProgressRing
                 current={totalProtein}
                 goal={goal}
@@ -212,25 +213,25 @@ export function DailyProgress({
             <ProgressRing current={totalProtein} goal={goal} size={200} strokeWidth={12} />
           )}
 
-          {/* Tap to log hint - only for today */}
-          {isToday && (
-            <p className="text-xs text-muted-foreground mt-4">Tap to log food</p>
-          )}
+          {/* Right Arrow */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-10 w-10 rounded-full flex-shrink-0', !onNextDay && 'opacity-30')}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onNextDay) onNextDay();
+            }}
+            disabled={!onNextDay}
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
         </div>
 
-        {/* Right Arrow */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn('h-12 w-12 rounded-full flex-shrink-0', !onNextDay && 'opacity-30')}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onNextDay) onNextDay();
-          }}
-          disabled={!onNextDay}
-        >
-          <ChevronRight className="h-7 w-7" />
-        </Button>
+        {/* Tap to log hint - only for today */}
+        {isToday && (
+          <p className="text-xs text-muted-foreground mt-4 text-center">Tap to log food</p>
+        )}
       </div>
 
       {/* Bottom Section - Stats & Entries */}
