@@ -209,7 +209,10 @@ export function Advisor() {
     setInitialized(true);
 
     if (!settings.advisorOnboarded) {
-      // Start onboarding
+      // Start onboarding - mark as started so settings become editable
+      if (!settings.advisorOnboardingStarted) {
+        updateSettings({ advisorOnboardingStarted: true });
+      }
       setOnboardingStep(0);
       const greeting = nickname ? `Hey ${nickname}! ` : 'Hey! ';
       queueMessages([

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   Ban,
@@ -6,6 +7,7 @@ import {
   ThumbsDown,
   Moon,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PreferenceListEditor } from './PreferenceListEditor';
@@ -102,6 +105,7 @@ function formatListSummary(items: string[] | undefined): string {
 }
 
 export function DietaryPreferencesSection() {
+  const navigate = useNavigate();
   const { settings, updateSettings } = useSettings();
   const prefs = settings.dietaryPreferences || {
     allergies: [],
@@ -114,6 +118,36 @@ export function DietaryPreferencesSection() {
   const [editingField, setEditingField] = useState<keyof DietaryPreferences | null>(null);
   const [sleepTimeDialogOpen, setSleepTimeDialogOpen] = useState(false);
   const [tempSleepTime, setTempSleepTime] = useState(prefs.sleepTime || '23:00');
+  const [lockedDialogOpen, setLockedDialogOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  // Settings are locked until onboarding has started
+  const isLocked = !settings.advisorOnboardingStarted;
+
+  const handleLockedClick = (action: () => void) => {
+    if (isLocked) {
+      setPendingAction(() => action);
+      setLockedDialogOpen(true);
+    } else {
+      action();
+    }
+  };
+
+  const handleProceedAnyway = () => {
+    // Mark onboarding as started so settings become accessible
+    updateSettings({ advisorOnboardingStarted: true });
+    setLockedDialogOpen(false);
+    // Execute the pending action
+    if (pendingAction) {
+      pendingAction();
+      setPendingAction(null);
+    }
+  };
+
+  const handleGoToBuddy = () => {
+    setLockedDialogOpen(false);
+    navigate('/advisor');
+  };
 
   const updatePreferences = (field: keyof DietaryPreferences, value: string[] | string) => {
     const updated: DietaryPreferences = {
@@ -162,43 +196,49 @@ export function DietaryPreferencesSection() {
   return (
     <>
       <SettingsSection title="Food Buddy">
+        {isLocked && (
+          <div className="px-4 py-2 bg-muted/50 flex items-center gap-2 text-xs text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            Complete initial setup in Food Buddy to edit
+          </div>
+        )}
         <SettingsRow
           icon={AlertTriangle}
-          iconColor="text-red-500"
+          iconColor={isLocked ? 'text-muted-foreground' : 'text-red-500'}
           label="Allergies"
           description={formatListSummary(prefs.allergies)}
-          onClick={() => setEditingField('allergies')}
+          onClick={() => handleLockedClick(() => setEditingField('allergies'))}
         />
         <SettingsRow
           icon={Ban}
-          iconColor="text-orange-500"
+          iconColor={isLocked ? 'text-muted-foreground' : 'text-orange-500'}
           label="Intolerances"
           description={formatListSummary(prefs.intolerances)}
-          onClick={() => setEditingField('intolerances')}
+          onClick={() => handleLockedClick(() => setEditingField('intolerances'))}
         />
         <SettingsRow
           icon={Leaf}
-          iconColor="text-green-500"
+          iconColor={isLocked ? 'text-muted-foreground' : 'text-green-500'}
           label="Dietary Restrictions"
           description={formatListSummary(prefs.dietaryRestrictions)}
-          onClick={() => setEditingField('dietaryRestrictions')}
+          onClick={() => handleLockedClick(() => setEditingField('dietaryRestrictions'))}
         />
         <SettingsRow
           icon={ThumbsDown}
-          iconColor="text-gray-500"
+          iconColor={isLocked ? 'text-muted-foreground' : 'text-gray-500'}
           label="Dislikes"
           description={formatListSummary(prefs.dislikes)}
-          onClick={() => setEditingField('dislikes')}
+          onClick={() => handleLockedClick(() => setEditingField('dislikes'))}
         />
         <SettingsRow
           icon={Moon}
-          iconColor="text-indigo-500"
+          iconColor={isLocked ? 'text-muted-foreground' : 'text-indigo-500'}
           label="Sleep Time"
           description={prefs.sleepTime ? `Around ${prefs.sleepTime}` : 'Not set'}
-          onClick={() => {
+          onClick={() => handleLockedClick(() => {
             setTempSleepTime(prefs.sleepTime || '23:00');
             setSleepTimeDialogOpen(true);
-          }}
+          })}
         />
       </SettingsSection>
 
@@ -240,6 +280,29 @@ export function DietaryPreferencesSection() {
               Cancel
             </Button>
             <Button onClick={handleSaveSleepTime}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Locked settings dialog */}
+      <Dialog open={lockedDialogOpen} onOpenChange={setLockedDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-muted-foreground" />
+              Initial Setup Required
+            </DialogTitle>
+            <DialogDescription>
+              Food Buddy preferences are set up through a quick chat in the Buddy tab. This helps me understand your needs better.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button onClick={handleGoToBuddy} className="w-full">
+              Go to Food Buddy
+            </Button>
+            <Button variant="outline" onClick={handleProceedAnyway} className="w-full">
+              Edit here instead
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

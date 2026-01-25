@@ -25,6 +25,7 @@ export interface UserSettings {
   claudeApiKey?: string;     // user provides their own key
   dietaryPreferences?: DietaryPreferences;  // for Food Buddy
   advisorOnboarded?: boolean;               // whether user completed advisor onboarding
+  advisorOnboardingStarted?: boolean;       // whether user has started onboarding (enables settings)
 }
 
 export interface DailyGoal {
