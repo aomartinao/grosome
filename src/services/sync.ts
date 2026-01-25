@@ -710,7 +710,8 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
         claudeApiKey: localSettings?.claudeApiKey || cloudSettings.claudeApiKey,
         // Keep local dietary preferences if cloud doesn't have them
         dietaryPreferences: cloudSettings.dietaryPreferences || localSettings?.dietaryPreferences,
-        // Keep local onboarding state if cloud doesn't have it
+        // Keep local onboarding state if cloud doesn't have it (OR logic - true wins)
+        advisorOnboarded: cloudSettings.advisorOnboarded || localSettings?.advisorOnboarded,
         advisorOnboardingStarted: cloudSettings.advisorOnboardingStarted || localSettings?.advisorOnboardingStarted,
         logWelcomeShown: cloudSettings.logWelcomeShown || localSettings?.logWelcomeShown,
         // Preserve tracking toggles if locally enabled (OR logic - true wins)

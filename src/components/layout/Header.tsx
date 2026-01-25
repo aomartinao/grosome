@@ -34,7 +34,7 @@ export function Header() {
       case '/settings':
         return 'Settings';
       case '/advisor':
-        return 'Food Buddy';
+        return 'Food Buddy (beta)';
       default:
         return 'Protee';
     }
