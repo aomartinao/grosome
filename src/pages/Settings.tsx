@@ -15,6 +15,7 @@ import { version } from '../../package.json';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SyncStatus } from '@/components/settings/SyncStatus';
+import { DietaryPreferencesSection } from '@/components/settings/DietaryPreferencesSection';
 import { useSettings } from '@/hooks/useProteinData';
 import { useStore } from '@/store/useStore';
 import { db } from '@/db';
@@ -261,6 +262,9 @@ export function Settings() {
             }
           />
         </SettingsSection>
+
+        {/* Food Advisor Section */}
+        <DietaryPreferencesSection />
 
         {/* Data Section */}
         <SettingsSection title="Data">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   db,
@@ -8,6 +8,7 @@ import {
   getUserSettings,
   saveUserSettings,
   getAllDailyGoals,
+  getDailyGoal,
 } from '@/db';
 import { useStore } from '@/store/useStore';
 import { useAuthStore, triggerSync } from '@/store/useAuthStore';
@@ -155,4 +156,25 @@ export function useStreak(entries: FoodEntry[], defaultGoal: number): StreakInfo
   }, [entries, defaultGoal]);
 
   return streak;
+}
+
+export interface RemainingProtein {
+  remaining: number;
+  goal: number;
+  consumed: number;
+}
+
+export function useRemainingProtein(): RemainingProtein {
+  const { settings } = useStore();
+  const today = getToday();
+  const entries = useLiveQuery(() => getEntriesForDate(today), [today]) || [];
+  const dailyGoal = useLiveQuery(() => getDailyGoal(today), [today]);
+
+  return useMemo(() => {
+    const goal = dailyGoal?.goal ?? settings.defaultGoal;
+    const consumed = entries.reduce((sum, entry) => sum + entry.protein, 0);
+    const remaining = Math.max(0, goal - consumed);
+
+    return { remaining, goal, consumed };
+  }, [entries, dailyGoal, settings.defaultGoal]);
 }

@@ -2,12 +2,15 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/types';
 import { FoodCard } from './FoodCard';
+import { QuickReplies } from './QuickReplies';
 
 interface MessageBubbleProps {
   message: ChatMessage;
   onConfirm?: (entry: ChatMessage['foodEntry']) => void;
   onEdit?: (entry: ChatMessage['foodEntry']) => void;
+  onQuickReply?: (reply: string) => void;
   showCalories?: boolean;
+  isLatestMessage?: boolean;
 }
 
 export function MessageBubble({ message, onConfirm, onEdit, showCalories }: MessageBubbleProps) {

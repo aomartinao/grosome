@@ -23,6 +23,8 @@ export interface UserSettings {
   mpsTrackingEnabled?: boolean;      // Muscle Protein Synthesis hits tracking
   theme: 'light' | 'dark' | 'system';
   claudeApiKey?: string;     // user provides their own key
+  dietaryPreferences?: DietaryPreferences;  // for Food Advisor
+  advisorOnboarded?: boolean;               // whether user completed advisor onboarding
 }
 
 export interface DailyGoal {
@@ -47,6 +49,7 @@ export interface ChatMessage {
   timestamp: Date;
   updatedAt?: Date;             // For sync conflict resolution
   deletedAt?: Date;             // Soft delete for sync
+  advisorQuickReplies?: string[];  // ["Sweet", "Savory", "No preference"] for advisor mode
 }
 
 export interface DailyStats {
@@ -80,4 +83,14 @@ export interface AIAnalysisResult {
   confidence: ConfidenceLevel;
   reasoning?: string;
   consumedAt?: ConsumedAtInfo;
+}
+
+export interface DietaryPreferences {
+  allergies: string[];           // ["peanuts", "shellfish"]
+  intolerances: string[];        // ["lactose", "gluten"]
+  dietaryRestrictions: string[]; // ["vegetarian", "halal"]
+  dislikes: string[];            // ["chicken", "brussels sprouts"]
+  favorites: string[];           // ["greek yogurt", "salmon"]
+  sleepTime?: string;            // "23:00" HH:mm format
+  additionalNotes?: string;
 }

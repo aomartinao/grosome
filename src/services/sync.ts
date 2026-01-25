@@ -841,6 +841,8 @@ export async function pushSettingsToCloud(userId: string, settings: UserSettings
       calorie_tracking_enabled: settings.calorieTrackingEnabled ?? false,
       theme: settings.theme,
       claude_api_key: settings.claudeApiKey ?? null,
+      dietary_preferences: settings.dietaryPreferences ?? null,
+      advisor_onboarded: settings.advisorOnboarded ?? false,
       updated_at: new Date().toISOString(),
     };
 
@@ -883,6 +885,8 @@ export async function pullSettingsFromCloud(userId: string): Promise<UserSetting
       calorieTrackingEnabled: data.calorie_tracking_enabled,
       theme: data.theme as UserSettings['theme'],
       claudeApiKey: data.claude_api_key ?? undefined,
+      dietaryPreferences: data.dietary_preferences ?? undefined,
+      advisorOnboarded: data.advisor_onboarded ?? undefined,
     };
   } catch {
     return null;

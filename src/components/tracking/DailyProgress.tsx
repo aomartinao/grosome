@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Dumbbell, Plus } from 'lucide-react';
+import { format } from 'date-fns';
+import { Flame, Dumbbell, Plus, ChevronLeft, ChevronRight, History } from 'lucide-react';
 import { ProgressRing } from './ProgressRing';
 import { Button } from '@/components/ui/button';
 import { calculateMPSHits, cn, formatTime } from '@/lib/utils';
@@ -43,9 +44,26 @@ interface DailyProgressProps {
   calorieTrackingEnabled?: boolean;
   mpsTrackingEnabled?: boolean;
   streak: StreakInfo;
+  selectedDate: Date;
+  isToday: boolean;
+  onPrevDay: () => void;
+  onNextDay?: () => void;
+  onToday?: () => void;
 }
 
-export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabled, mpsTrackingEnabled, streak }: DailyProgressProps) {
+export function DailyProgress({
+  entries,
+  goal,
+  calorieGoal,
+  calorieTrackingEnabled,
+  mpsTrackingEnabled,
+  streak,
+  selectedDate,
+  isToday,
+  onPrevDay,
+  onNextDay,
+  onToday,
+}: DailyProgressProps) {
   const navigate = useNavigate();
 
   const totalProtein = useMemo(
@@ -75,10 +93,52 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
 
   return (
     <div className="flex flex-col min-h-full">
+      {/* Date Navigation */}
+      <div className="flex items-center justify-between px-4 py-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          onClick={onPrevDay}
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+
+        <button
+          onClick={onToday}
+          className={cn(
+            'text-center transition-colors',
+            onToday && 'hover:text-primary active:text-primary'
+          )}
+        >
+          <span className="font-semibold">
+            {isToday ? 'Today' : format(selectedDate, 'EEEE')}
+          </span>
+          {!isToday && (
+            <p className="text-xs text-muted-foreground">
+              {format(selectedDate, 'MMM d')} · tap for today
+            </p>
+          )}
+        </button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn('h-9 w-9 rounded-full', !onNextDay && 'opacity-30')}
+          onClick={onNextDay}
+          disabled={!onNextDay}
+        >
+          <ChevronRight className="h-5 w-5" />
+        </Button>
+      </div>
+
       {/* Hero Section - Progress Ring(s) */}
       <div
-        className="flex-1 flex flex-col items-center justify-center px-4 py-8 cursor-pointer"
-        onClick={() => navigate('/chat')}
+        className={cn(
+          'flex-1 flex flex-col items-center justify-center px-4 py-6',
+          isToday && 'cursor-pointer'
+        )}
+        onClick={isToday ? () => navigate('/chat') : undefined}
       >
         {showDualRings ? (
           <div className="flex gap-6 items-center">
@@ -105,14 +165,16 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
           <ProgressRing current={totalProtein} goal={goal} size={200} strokeWidth={12} />
         )}
 
-        {/* Tap to log hint */}
-        <p className="text-xs text-muted-foreground mt-4">Tap to log food</p>
+        {/* Tap to log hint - only for today */}
+        {isToday && (
+          <p className="text-xs text-muted-foreground mt-4">Tap to log food</p>
+        )}
       </div>
 
       {/* Bottom Section - Stats & Entries */}
-      <div className="bg-card rounded-t-3xl shadow-lg px-4 pt-5 pb-4 space-y-4">
+      <div className="bg-card rounded-t-3xl shadow-lg flex flex-col min-h-[40vh]">
         {/* Quick Stats Row */}
-        <div className="flex items-center justify-around">
+        <div className="flex items-center justify-around px-4 py-4 border-b border-border/50">
           {/* Streak */}
           <div className="flex flex-col items-center">
             <div className="flex items-center gap-1.5 text-orange-500">
@@ -145,34 +207,38 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
           ) : (
             <div className="flex flex-col items-center">
               <span className="text-2xl font-bold text-foreground">{entries.length}</span>
-              <span className="text-xs text-muted-foreground">entries today</span>
+              <span className="text-xs text-muted-foreground">entries</span>
             </div>
           )}
 
           {/* Divider */}
           <div className="h-10 w-px bg-border" />
 
-          {/* Quick Add Button */}
-          <Button
-            size="icon"
-            className="h-12 w-12 rounded-full shadow-md"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate('/chat');
-            }}
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
+          {/* Quick Add Button - only for today */}
+          {isToday ? (
+            <Button
+              size="icon"
+              className="h-12 w-12 rounded-full shadow-md"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/chat');
+              }}
+            >
+              <Plus className="h-6 w-6" />
+            </Button>
+          ) : (
+            <div className="flex flex-col items-center">
+              <span className="text-2xl font-bold text-foreground">{entries.length}</span>
+              <span className="text-xs text-muted-foreground">entries</span>
+            </div>
+          )}
         </div>
 
-        {/* Today's Entries */}
-        {entries.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
-              Today's Entries
-            </h3>
+        {/* Entries Section - Scrollable */}
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {entries.length > 0 ? (
             <div className="space-y-1.5">
-              {entries.slice().reverse().slice(0, 5).map((entry) => (
+              {entries.slice().reverse().map((entry) => (
                 <div
                   key={entry.id}
                   className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/50"
@@ -202,24 +268,25 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
                   </div>
                 </div>
               ))}
-              {entries.length > 5 && (
-                <button
-                  className="w-full text-center text-xs text-muted-foreground py-2 hover:text-foreground transition-colors"
-                  onClick={() => navigate('/history')}
-                >
-                  View all {entries.length} entries
-                </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <p className="text-muted-foreground">No entries {isToday ? 'yet today' : 'this day'}</p>
+              {isToday && (
+                <p className="text-sm text-muted-foreground mt-1">Tap above to log your first meal</p>
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {entries.length === 0 && (
-          <div className="text-center py-6">
-            <p className="text-muted-foreground">No entries yet today</p>
-            <p className="text-sm text-muted-foreground mt-1">Tap above to log your first meal</p>
-          </div>
-        )}
+        {/* View History Link */}
+        <button
+          className="flex items-center justify-center gap-2 py-4 border-t border-border/50 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => navigate('/history')}
+        >
+          <History className="h-4 w-4" />
+          View full history
+        </button>
       </div>
     </div>
   );

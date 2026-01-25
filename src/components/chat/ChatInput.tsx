@@ -1,18 +1,33 @@
 import { useState, useRef } from 'react';
-import { Camera, Send, Image as ImageIcon } from 'lucide-react';
+import { Camera, Send, Image as ImageIcon, MessageSquare, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { compressImage } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+
+export type ChatMode = 'log' | 'advisor';
 
 interface ChatInputProps {
   onSendText: (text: string) => void;
   onSendImage: (imageData: string) => void;
   disabled?: boolean;
+  mode?: ChatMode;
+  onModeChange?: (mode: ChatMode) => void;
 }
 
-export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps) {
+export function ChatInput({
+  onSendText,
+  onSendImage,
+  disabled,
+  mode = 'log',
+  onModeChange,
+}: ChatInputProps) {
   const [text, setText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const placeholder = mode === 'advisor'
+    ? 'Ask for meal suggestions...'
+    : 'Describe your meal...';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +70,30 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
           className="hidden"
         />
 
+        {/* Mode toggle */}
+        {onModeChange && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(
+              'h-10 w-10 rounded-full',
+              mode === 'advisor' ? 'bg-amber-100 hover:bg-amber-200' : 'hover:bg-muted'
+            )}
+            onClick={() => onModeChange(mode === 'log' ? 'advisor' : 'log')}
+            disabled={disabled}
+          >
+            {mode === 'advisor' ? (
+              <Lightbulb className="h-5 w-5 text-amber-600" />
+            ) : (
+              <MessageSquare className="h-5 w-5 text-muted-foreground" />
+            )}
+            <span className="sr-only">
+              {mode === 'advisor' ? 'Switch to log mode' : 'Switch to advisor mode'}
+            </span>
+          </Button>
+        )}
+
         {/* Action buttons */}
         <div className="flex gap-1">
           <Button
@@ -88,7 +127,7 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Describe your meal..."
+            placeholder={placeholder}
             disabled={disabled}
             className="w-full h-10 px-4 rounded-full bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
           />
