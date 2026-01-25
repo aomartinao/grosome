@@ -1,4 +1,4 @@
-import { Check, Edit2, CheckCircle, Trash2 } from 'lucide-react';
+import { Check, Edit2, CheckCircle, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { FoodEntry } from '@/types';
@@ -9,6 +9,7 @@ interface FoodCardProps {
   onConfirm?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onCancel?: () => void;
   showActions?: boolean;
   showCalories?: boolean;
   isConfirmed?: boolean;
@@ -19,6 +20,7 @@ export function FoodCard({
   onConfirm,
   onEdit,
   onDelete,
+  onCancel,
   showActions = true,
   showCalories = false,
   isConfirmed = false,
@@ -66,6 +68,16 @@ export function FoodCard({
       {/* Actions */}
       {showActions && !isConfirmed && (
         <div className="flex gap-2 mt-4">
+          {onCancel && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-10 px-3 rounded-xl text-muted-foreground"
+              onClick={onCancel}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"

@@ -10,6 +10,7 @@ interface MessageBubbleProps {
   onConfirm?: (entry: ChatMessage['foodEntry']) => void;
   onEdit?: (entry: ChatMessage['foodEntry']) => void;
   onDelete?: (entry: ChatMessage['foodEntry']) => void;
+  onCancel?: (entry: ChatMessage['foodEntry']) => void;
   onQuickReply?: (reply: string) => void;
   showCalories?: boolean;
   isLatestMessage?: boolean;
@@ -20,6 +21,7 @@ export function MessageBubble({
   onConfirm,
   onEdit,
   onDelete,
+  onCancel,
   onQuickReply,
   showCalories,
   isLatestMessage,
@@ -70,6 +72,7 @@ export function MessageBubble({
                   onConfirm={() => onConfirm?.(message.foodEntry)}
                   onEdit={() => onEdit?.(message.foodEntry)}
                   onDelete={() => onDelete?.(message.foodEntry)}
+                  onCancel={() => onCancel?.(message.foodEntry)}
                   showCalories={showCalories}
                   isConfirmed={isConfirmed}
                 />

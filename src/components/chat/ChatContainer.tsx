@@ -126,7 +126,7 @@ export function ChatContainer() {
         }
 
         await updateMessage(pendingMessageSyncId, {
-          content: '',
+          content: result.reasoning || '',
           foodEntry: {
             ...pendingMessage.foodEntry,
             date: result.consumedAt?.parsedDate || pendingMessage.foodEntry.date,
@@ -177,7 +177,7 @@ export function ChatContainer() {
 
       await updateMessage(loadingSyncId, {
         isLoading: false,
-        content: '',
+        content: result.reasoning || '',
         foodEntry: {
           date: entryDate,
           source: 'text',
@@ -249,7 +249,7 @@ export function ChatContainer() {
 
       await updateMessage(loadingSyncId, {
         isLoading: false,
-        content: '',
+        content: result.reasoning || '',
         foodEntry: {
           date: entryDate,
           source: 'photo',
@@ -430,6 +430,21 @@ export function ChatContainer() {
     }
   };
 
+  const handleCancel = async (entry: ChatMessage['foodEntry'], messageSyncId?: string) => {
+    if (!entry || !messageSyncId) return;
+
+    // Remove the foodEntry from the message (dismiss without saving)
+    await updateMessage(messageSyncId, {
+      foodEntry: undefined,
+      content: 'Cancelled.',
+    });
+
+    // Clear pending message tracking if this was the pending one
+    if (pendingMessageSyncId === messageSyncId) {
+      setPendingMessageSyncId(null);
+    }
+  };
+
   // Helper to get date string from message
   const getMessageDate = (message: ChatMessage): string => {
     const time = message.foodEntry?.consumedAt || message.timestamp;
@@ -472,6 +487,7 @@ export function ChatContainer() {
                 onConfirm={(entry) => handleConfirm(entry, message.syncId)}
                 onEdit={(entry) => handleEdit(entry, message.syncId)}
                 onDelete={(entry) => handleDelete(entry, message.syncId)}
+                onCancel={(entry) => handleCancel(entry, message.syncId)}
                 showCalories={settings.calorieTrackingEnabled}
                 isLatestMessage={index === messages.length - 1}
               />
