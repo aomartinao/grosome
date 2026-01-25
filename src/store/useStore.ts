@@ -28,6 +28,10 @@ interface AppState {
   pendingEntry: Partial<FoodEntry> | null;
   setPendingEntry: (entry: Partial<FoodEntry> | null) => void;
 
+  // Pending message tracking (for follow-up refinements)
+  pendingMessageSyncId: string | null;
+  setPendingMessageSyncId: (syncId: string | null) => void;
+
   // UI State
   isAnalyzing: boolean;
   setIsAnalyzing: (isAnalyzing: boolean) => void;
@@ -148,6 +152,10 @@ export const useStore = create<AppState>()(
       // Pending entry
       pendingEntry: null,
       setPendingEntry: (entry) => set({ pendingEntry: entry }),
+
+      // Pending message tracking
+      pendingMessageSyncId: null,
+      setPendingMessageSyncId: (syncId) => set({ pendingMessageSyncId: syncId }),
 
       // UI state
       isAnalyzing: false,

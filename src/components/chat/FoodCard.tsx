@@ -1,8 +1,9 @@
-import { Check, Edit2 } from 'lucide-react';
+import { Check, Edit2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { FoodEntry } from '@/types';
+import { format } from 'date-fns';
 
 interface FoodCardProps {
   entry: Partial<FoodEntry>;
@@ -10,6 +11,7 @@ interface FoodCardProps {
   onEdit?: () => void;
   showActions?: boolean;
   showCalories?: boolean;
+  isConfirmed?: boolean;
 }
 
 export function FoodCard({
@@ -18,6 +20,7 @@ export function FoodCard({
   onEdit,
   showActions = true,
   showCalories = false,
+  isConfirmed = false,
 }: FoodCardProps) {
   const confidenceVariant =
     entry.confidence === 'high'
@@ -46,6 +49,11 @@ export function FoodCard({
               </>
             )}
           </div>
+          {entry.consumedAt && (
+            <div className="text-xs text-muted-foreground mt-1">
+              {format(entry.consumedAt, 'h:mm a')}
+            </div>
+          )}
         </div>
         {entry.confidence && (
           <Badge variant={confidenceVariant} className={cn('capitalize')}>
@@ -54,7 +62,7 @@ export function FoodCard({
         )}
       </div>
 
-      {showActions && (
+      {showActions && !isConfirmed && (
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -69,6 +77,13 @@ export function FoodCard({
             <Check className="h-4 w-4 mr-1" />
             Confirm
           </Button>
+        </div>
+      )}
+
+      {isConfirmed && (
+        <div className="flex items-center justify-center gap-2 text-sm text-green-600">
+          <CheckCircle className="h-4 w-4" />
+          <span>Added</span>
         </div>
       )}
     </div>

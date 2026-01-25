@@ -110,36 +110,33 @@ export function Settings() {
         )}
       </Card>
 
-      {/* Goal Settings - Combined */}
+      {/* Goal Settings - Compact */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Daily Goals</CardTitle>
-          <CardDescription>
-            Your default daily nutrition targets.
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Tracking</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
-          {/* Protein Tracking */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Protein</label>
+        <CardContent className="space-y-3">
+          {/* Protein Tracking - inline */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1">
               <button
                 onClick={() => updateSettings({ proteinTrackingEnabled: !proteinTrackingEnabled })}
                 className={cn(
-                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
                   proteinTrackingEnabled ? 'bg-primary' : 'bg-muted'
                 )}
               >
                 <span
                   className={cn(
-                    'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
-                    proteinTrackingEnabled ? 'translate-x-5' : 'translate-x-0'
+                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
+                    proteinTrackingEnabled ? 'translate-x-4' : 'translate-x-0'
                   )}
                 />
               </button>
+              <span className="text-sm font-medium">Protein</span>
             </div>
             {proteinTrackingEnabled && (
-              <div className="flex items-center gap-2 pl-1">
+              <div className="flex items-center gap-1">
                 <Input
                   type="number"
                   value={settings.defaultGoal}
@@ -151,36 +148,34 @@ export function Settings() {
                   }}
                   min={1}
                   max={500}
-                  className="w-24"
+                  className="w-16 h-8 text-sm"
                 />
-                <span className="text-sm text-muted-foreground">grams per day</span>
+                <span className="text-xs text-muted-foreground">g/day</span>
               </div>
             )}
           </div>
 
-          <div className="border-t" />
-
-          {/* Calorie Tracking */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Calories</label>
+          {/* Calorie Tracking - inline */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1">
               <button
                 onClick={() => updateSettings({ calorieTrackingEnabled: !settings.calorieTrackingEnabled })}
                 className={cn(
-                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
                   settings.calorieTrackingEnabled ? 'bg-primary' : 'bg-muted'
                 )}
               >
                 <span
                   className={cn(
-                    'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
-                    settings.calorieTrackingEnabled ? 'translate-x-5' : 'translate-x-0'
+                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
+                    settings.calorieTrackingEnabled ? 'translate-x-4' : 'translate-x-0'
                   )}
                 />
               </button>
+              <span className="text-sm font-medium">Calories</span>
             </div>
             {settings.calorieTrackingEnabled && (
-              <div className="flex items-center gap-2 pl-1">
+              <div className="flex items-center gap-1">
                 <Input
                   type="number"
                   value={settings.calorieGoal || ''}
@@ -193,11 +188,33 @@ export function Settings() {
                   min={500}
                   max={10000}
                   placeholder="2000"
-                  className="w-24"
+                  className="w-16 h-8 text-sm"
                 />
-                <span className="text-sm text-muted-foreground">kcal per day</span>
+                <span className="text-xs text-muted-foreground">kcal</span>
               </div>
             )}
+          </div>
+
+          {/* MPS Tracking - inline */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1">
+              <button
+                onClick={() => updateSettings({ mpsTrackingEnabled: !settings.mpsTrackingEnabled })}
+                className={cn(
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
+                  settings.mpsTrackingEnabled ? 'bg-primary' : 'bg-muted'
+                )}
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out',
+                    settings.mpsTrackingEnabled ? 'translate-x-4' : 'translate-x-0'
+                  )}
+                />
+              </button>
+              <span className="text-sm font-medium">MPS Hits</span>
+            </div>
+            <span className="text-xs text-muted-foreground">≥25g, 2h apart</span>
           </div>
         </CardContent>
       </Card>

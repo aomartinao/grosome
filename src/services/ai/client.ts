@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { AIAnalysisResult, ConfidenceLevel } from '@/types';
+import type { AIAnalysisResult, ConfidenceLevel, ConsumedAtInfo } from '@/types';
 
 const FOOD_ANALYSIS_PROMPT = `You are a nutrition expert analyzing food images and descriptions to estimate protein AND calorie content for the ENTIRE item being consumed.
 
@@ -9,6 +9,7 @@ For the given food, provide:
 3. Estimated calorie content in kcal FOR THE WHOLE ITEM/PACKAGE
 4. Confidence level (high/medium/low)
 5. Brief reasoning for your estimate
+6. Time consumed (if mentioned in the text)
 
 CRITICAL GUIDELINES FOR NUTRITION LABELS:
 - When a label shows BOTH "per 100g/100ml" AND "per serving" or "per package" columns, ALWAYS use the per-package/per-serving value
@@ -32,13 +33,19 @@ Guidelines for other foods:
   - Banana (1 medium): ~1g protein, ~105kcal
   - Apple (1 medium): ~0.5g protein, ~95kcal
 
+TIME EXTRACTION:
+- Look for time mentions in user text like "at 9am", "30 minutes ago", "2 hours ago", "this morning", "for lunch", "yesterday"
+- Calculate the actual date and time based on the CURRENT TIME provided
+- If no time is mentioned, omit the consumedAt field
+
 Respond in JSON format only:
 {
   "foodName": "string",
   "protein": number,
   "calories": number,
   "confidence": "high" | "medium" | "low",
-  "reasoning": "string"
+  "reasoning": "string",
+  "consumedAt": { "date": "YYYY-MM-DD", "time": "HH:mm" } | null
 }`;
 
 export async function analyzeFood(
@@ -51,6 +58,7 @@ export async function analyzeFood(
   });
 
   const content: Anthropic.MessageParam['content'] = [];
+  const currentTime = new Date().toISOString();
 
   if (input.imageBase64) {
     // Extract base64 data from data URL if present
@@ -71,12 +79,12 @@ export async function analyzeFood(
   if (input.text) {
     content.push({
       type: 'text',
-      text: `Analyze this food: ${input.text}`,
+      text: `CURRENT TIME: ${currentTime}\n\nAnalyze this food: ${input.text}`,
     });
   } else if (input.imageBase64) {
     content.push({
       type: 'text',
-      text: 'Analyze the food in this image and estimate its protein content.',
+      text: `CURRENT TIME: ${currentTime}\n\nAnalyze the food in this image and estimate its protein content.`,
     });
   }
 
@@ -106,12 +114,22 @@ export async function analyzeFood(
 
   const parsed = JSON.parse(jsonMatch[0]);
 
+  // Parse consumedAt if present
+  let consumedAt: ConsumedAtInfo | undefined;
+  if (parsed.consumedAt && parsed.consumedAt.date && parsed.consumedAt.time) {
+    consumedAt = {
+      parsedDate: parsed.consumedAt.date,
+      parsedTime: parsed.consumedAt.time,
+    };
+  }
+
   return {
     foodName: parsed.foodName || 'Unknown food',
     protein: Math.round(parsed.protein) || 0,
     calories: Math.round(parsed.calories) || 0,
     confidence: (parsed.confidence as ConfidenceLevel) || 'low',
     reasoning: parsed.reasoning,
+    consumedAt,
   };
 }
 
@@ -127,4 +145,88 @@ export async function analyzeImage(
   imageBase64: string
 ): Promise<AIAnalysisResult> {
   return analyzeFood(apiKey, { imageBase64 });
+}
+
+const REFINE_ANALYSIS_PROMPT = `You are a nutrition expert. The user has provided additional details about a food they already logged. Update the analysis based on this new information.
+
+Use the original analysis as a baseline and modify it based on the user's corrections or additions.
+- If they specify a quantity (e.g., "it was 200g"), recalculate protein/calories accordingly
+- If they specify a preparation method (e.g., "grilled", "fried"), adjust estimates
+- If they correct something (e.g., "it was chicken, not turkey"), update the food name and values
+- Preserve any information not being corrected
+
+Respond in JSON format only:
+{
+  "foodName": "string",
+  "protein": number,
+  "calories": number,
+  "confidence": "high" | "medium" | "low",
+  "reasoning": "string",
+  "consumedAt": { "date": "YYYY-MM-DD", "time": "HH:mm" } | null
+}`;
+
+export async function refineAnalysis(
+  apiKey: string,
+  originalAnalysis: AIAnalysisResult,
+  userCorrection: string
+): Promise<AIAnalysisResult> {
+  const client = new Anthropic({
+    apiKey,
+    dangerouslyAllowBrowser: true,
+  });
+
+  const currentTime = new Date().toISOString();
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 500,
+    system: REFINE_ANALYSIS_PROMPT,
+    messages: [
+      {
+        role: 'user',
+        content: `CURRENT TIME: ${currentTime}
+
+Original analysis:
+- Food: ${originalAnalysis.foodName}
+- Protein: ${originalAnalysis.protein}g
+- Calories: ${originalAnalysis.calories} kcal
+- Confidence: ${originalAnalysis.confidence}
+${originalAnalysis.consumedAt ? `- Consumed at: ${originalAnalysis.consumedAt.parsedDate} ${originalAnalysis.consumedAt.parsedTime}` : ''}
+
+User's additional info: ${userCorrection}`,
+      },
+    ],
+  });
+
+  const textContent = response.content.find((block) => block.type === 'text');
+  if (!textContent || textContent.type !== 'text') {
+    throw new Error('No text response from AI');
+  }
+
+  const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('Could not parse AI response');
+  }
+
+  const parsed = JSON.parse(jsonMatch[0]);
+
+  let consumedAt: ConsumedAtInfo | undefined;
+  if (parsed.consumedAt && parsed.consumedAt.date && parsed.consumedAt.time) {
+    consumedAt = {
+      parsedDate: parsed.consumedAt.date,
+      parsedTime: parsed.consumedAt.time,
+    };
+  } else if (originalAnalysis.consumedAt) {
+    // Preserve original consumedAt if not updated
+    consumedAt = originalAnalysis.consumedAt;
+  }
+
+  return {
+    foodName: parsed.foodName || originalAnalysis.foodName,
+    protein: Math.round(parsed.protein) || originalAnalysis.protein,
+    calories: Math.round(parsed.calories) || originalAnalysis.calories,
+    confidence: (parsed.confidence as ConfidenceLevel) || originalAnalysis.confidence,
+    reasoning: parsed.reasoning,
+    consumedAt,
+  };
 }

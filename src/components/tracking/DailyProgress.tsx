@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { Flame, Target, TrendingUp, Zap } from 'lucide-react';
+import { Flame, Target, TrendingUp, Zap, Dumbbell } from 'lucide-react';
 import { ProgressRing } from './ProgressRing';
 import { Card, CardContent } from '@/components/ui/card';
+import { calculateMPSHits } from '@/lib/utils';
 import type { FoodEntry, StreakInfo } from '@/types';
 
 interface DailyProgressProps {
@@ -9,10 +10,11 @@ interface DailyProgressProps {
   goal: number;
   calorieGoal?: number;
   calorieTrackingEnabled?: boolean;
+  mpsTrackingEnabled?: boolean;
   streak: StreakInfo;
 }
 
-export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabled, streak }: DailyProgressProps) {
+export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabled, mpsTrackingEnabled, streak }: DailyProgressProps) {
   const totalProtein = useMemo(
     () => entries.reduce((sum, entry) => sum + entry.protein, 0),
     [entries]
@@ -21,6 +23,11 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
   const totalCalories = useMemo(
     () => entries.reduce((sum, entry) => sum + (entry.calories || 0), 0),
     [entries]
+  );
+
+  const mpsHits = useMemo(
+    () => mpsTrackingEnabled ? calculateMPSHits(entries) : [],
+    [entries, mpsTrackingEnabled]
   );
 
   const remaining = Math.max(goal - totalProtein, 0);
@@ -71,9 +78,17 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
         {calorieTrackingEnabled && calorieGoal ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center p-4">
-              <Zap className="h-5 w-5 text-primary mb-1" />
+              <Zap className="h-5 w-5 text-amber-500 mb-1" />
               <span className="text-2xl font-bold">{caloriesRemaining}</span>
               <span className="text-xs text-muted-foreground">kcal left</span>
+            </CardContent>
+          </Card>
+        ) : mpsTrackingEnabled ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center p-4">
+              <Dumbbell className="h-5 w-5 text-purple-500 mb-1" />
+              <span className="text-2xl font-bold">{mpsHits.length}<span className="text-base font-normal text-muted-foreground">/3</span></span>
+              <span className="text-xs text-muted-foreground">MPS hits</span>
             </CardContent>
           </Card>
         ) : (
@@ -86,7 +101,33 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
           </Card>
         )}
 
-        {calorieTrackingEnabled && calorieGoal && (
+        {calorieTrackingEnabled && calorieGoal && mpsTrackingEnabled ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center p-4">
+              <Dumbbell className="h-5 w-5 text-purple-500 mb-1" />
+              <span className="text-2xl font-bold">{mpsHits.length}<span className="text-base font-normal text-muted-foreground">/3</span></span>
+              <span className="text-xs text-muted-foreground">MPS hits</span>
+            </CardContent>
+          </Card>
+        ) : calorieTrackingEnabled && calorieGoal ? (
+          <Card variant="dark">
+            <CardContent className="flex flex-col items-center justify-center p-4">
+              <TrendingUp className="h-5 w-5 text-primary mb-1" />
+              <span className="text-2xl font-bold">{entries.length}</span>
+              <span className="text-xs text-white/60">Entries</span>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <Card variant="dark">
+          <CardContent className="flex flex-col items-center justify-center p-4">
+            <Flame className="h-5 w-5 text-orange-500 mb-1" />
+            <span className="text-2xl font-bold">{streak.currentStreak}</span>
+            <span className="text-xs text-white/60">Day streak</span>
+          </CardContent>
+        </Card>
+
+        {!(calorieTrackingEnabled && calorieGoal) && !mpsTrackingEnabled && (
           <Card variant="dark">
             <CardContent className="flex flex-col items-center justify-center p-4">
               <TrendingUp className="h-5 w-5 text-primary mb-1" />
@@ -95,14 +136,6 @@ export function DailyProgress({ entries, goal, calorieGoal, calorieTrackingEnabl
             </CardContent>
           </Card>
         )}
-
-        <Card variant={calorieTrackingEnabled && calorieGoal ? 'dark' : 'default'}>
-          <CardContent className="flex flex-col items-center justify-center p-4">
-            <Flame className={`h-5 w-5 mb-1 ${calorieTrackingEnabled && calorieGoal ? 'text-primary' : 'text-orange-500'}`} />
-            <span className="text-2xl font-bold">{streak.currentStreak}</span>
-            <span className={`text-xs ${calorieTrackingEnabled && calorieGoal ? 'text-white/60' : 'text-muted-foreground'}`}>Day streak</span>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Recent Entries */}

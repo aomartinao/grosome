@@ -97,3 +97,45 @@ export function getConfidenceBadgeColor(confidence: 'high' | 'medium' | 'low'): 
       return 'bg-red-100 text-red-800';
   }
 }
+
+/**
+ * Calculate MPS (Muscle Protein Synthesis) hits from food entries.
+ * An MPS hit requires:
+ * - At least 25g protein in a single entry
+ * - At least 2 hours since the previous MPS hit
+ */
+export interface MPSHit {
+  entry: { id?: number; foodName: string; protein: number; consumedAt?: Date; createdAt: Date };
+  time: Date;
+}
+
+export function calculateMPSHits<T extends { protein: number; consumedAt?: Date; createdAt: Date }>(
+  entries: T[]
+): T[] {
+  const MIN_PROTEIN = 25;
+  const MIN_GAP_HOURS = 2;
+  const MIN_GAP_MS = MIN_GAP_HOURS * 60 * 60 * 1000;
+
+  // Filter entries with enough protein and sort by time
+  const eligibleEntries = entries
+    .filter((e) => e.protein >= MIN_PROTEIN)
+    .sort((a, b) => {
+      const timeA = (a.consumedAt || a.createdAt).getTime();
+      const timeB = (b.consumedAt || b.createdAt).getTime();
+      return timeA - timeB;
+    });
+
+  const mpsHits: T[] = [];
+  let lastHitTime: number | null = null;
+
+  for (const entry of eligibleEntries) {
+    const entryTime = (entry.consumedAt || entry.createdAt).getTime();
+
+    if (lastHitTime === null || entryTime - lastHitTime >= MIN_GAP_MS) {
+      mpsHits.push(entry);
+      lastHitTime = entryTime;
+    }
+  }
+
+  return mpsHits;
+}

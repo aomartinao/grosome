@@ -237,6 +237,7 @@ function serializeMessage(message: Omit<ChatMessage, 'id'>): Record<string, unkn
     // Serialize foodEntry dates if present
     foodEntry: message.foodEntry ? {
       ...message.foodEntry,
+      consumedAt: message.foodEntry.consumedAt instanceof Date ? message.foodEntry.consumedAt.toISOString() : message.foodEntry.consumedAt,
       createdAt: message.foodEntry.createdAt instanceof Date ? message.foodEntry.createdAt.toISOString() : message.foodEntry.createdAt,
       updatedAt: message.foodEntry.updatedAt instanceof Date ? message.foodEntry.updatedAt?.toISOString() : message.foodEntry.updatedAt,
       deletedAt: message.foodEntry.deletedAt instanceof Date ? message.foodEntry.deletedAt?.toISOString() : message.foodEntry.deletedAt,
@@ -254,6 +255,7 @@ function deserializeMessage(stored: Record<string, unknown>): ChatMessage {
     deletedAt: stored.deletedAt ? new Date(stored.deletedAt as string) : undefined,
     foodEntry: foodEntry ? {
       ...foodEntry,
+      consumedAt: foodEntry.consumedAt ? new Date(foodEntry.consumedAt as string) : undefined,
       createdAt: foodEntry.createdAt ? new Date(foodEntry.createdAt as string) : new Date(),
       updatedAt: foodEntry.updatedAt ? new Date(foodEntry.updatedAt as string) : undefined,
       deletedAt: foodEntry.deletedAt ? new Date(foodEntry.deletedAt as string) : undefined,

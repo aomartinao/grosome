@@ -8,6 +8,7 @@ export interface FoodEntry {
   calories?: number;         // kcal
   confidence: 'high' | 'medium' | 'low';
   imageData?: string;        // base64 encoded image for photo entries
+  consumedAt?: Date;         // When the food was consumed (for time tracking)
   createdAt: Date;
   updatedAt?: Date;          // For sync conflict resolution (set on persist)
   deletedAt?: Date;          // Soft delete for sync (null = not deleted)
@@ -19,6 +20,7 @@ export interface UserSettings {
   calorieGoal?: number;      // daily calorie target in kcal
   proteinTrackingEnabled?: boolean;  // default true
   calorieTrackingEnabled?: boolean;
+  mpsTrackingEnabled?: boolean;      // Muscle Protein Synthesis hits tracking
   theme: 'light' | 'dark' | 'system';
   claudeApiKey?: string;     // user provides their own key
 }
@@ -66,10 +68,16 @@ export interface StreakInfo {
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
+export interface ConsumedAtInfo {
+  parsedDate: string;  // YYYY-MM-DD
+  parsedTime: string;  // HH:mm
+}
+
 export interface AIAnalysisResult {
   foodName: string;
   protein: number;
   calories: number;
   confidence: ConfidenceLevel;
   reasoning?: string;
+  consumedAt?: ConsumedAtInfo;
 }
