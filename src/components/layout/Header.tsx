@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, LogOut, Trash2, CalendarCheck, RefreshCw, Target } from 'lucide-react';
+import { Settings, LogOut, Trash2, CalendarCheck, RefreshCw, Target, Loader2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { version } from '../../../package.json';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,35 @@ export function Header() {
   const { updateAvailable, updateApp } = useUpdateAvailable();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [advisorClearDialogOpen, setAdvisorClearDialogOpen] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'current'>('idle');
+
+  const handleCheckForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateStatus('checking');
+
+    try {
+      const registration = await navigator.serviceWorker?.getRegistration();
+      if (registration) {
+        await registration.update();
+
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          window.location.reload();
+        } else {
+          setUpdateStatus('current');
+          setTimeout(() => setUpdateStatus('idle'), 2000);
+        }
+      } else {
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Failed to check for updates:', error);
+      window.location.reload();
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   const getTitle = () => {
     switch (location.pathname) {
@@ -162,19 +191,35 @@ export function Header() {
                 <p className="text-xs text-muted-foreground">
                   Feedback welcome at{' '}
                   <a
-                    href="mailto:mmartin.holecko@gmail.com"
+                    href="mailto:martin.holecko@gmail.com"
                     className="text-primary hover:underline"
                   >
-                    mmartin.holecko@gmail.com
+                    martin.holecko@gmail.com
                   </a>
                 </p>
               </div>
-              <Link to="/settings" className="block">
-                <Button variant="outline" size="sm" className="w-full gap-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
+              <div className="flex gap-2">
+                <Link to="/settings" className="flex-1">
+                  <Button variant="outline" size="sm" className="w-full gap-2">
+                    <Settings className="h-4 w-4" />
+                    Settings
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-2"
+                  onClick={handleCheckForUpdates}
+                  disabled={isCheckingUpdate}
+                >
+                  {isCheckingUpdate ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  {updateStatus === 'current' ? 'Up to date' : 'Update'}
                 </Button>
-              </Link>
+              </div>
             </div>
           </PopoverContent>
         </Popover>
