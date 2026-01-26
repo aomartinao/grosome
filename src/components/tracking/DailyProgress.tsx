@@ -23,8 +23,10 @@ function getMPSWindowStatus(lastHitTime: Date | null): {
     return { minutesSince: null, dotColor: 'bg-green-500' };
   }
 
+  // Ensure lastHitTime is a Date object (might be string from IndexedDB)
+  const hitDate = lastHitTime instanceof Date ? lastHitTime : new Date(lastHitTime);
   const now = new Date();
-  const minutesSince = Math.floor((now.getTime() - lastHitTime.getTime()) / 60000);
+  const minutesSince = Math.floor((now.getTime() - hitDate.getTime()) / 60000);
 
   if (minutesSince < MPS_RED_THRESHOLD) {
     return { minutesSince, dotColor: 'bg-red-500' };
@@ -113,7 +115,14 @@ export function DailyProgress({
   const lastMPSHitTime = useMemo(() => {
     if (mpsHits.length === 0) return null;
     const lastHit = mpsHits[mpsHits.length - 1];
-    return lastHit.consumedAt || lastHit.createdAt;
+    const time = lastHit.consumedAt || lastHit.createdAt;
+    // Ensure it's a Date object
+    return time instanceof Date ? time : new Date(time);
+  }, [mpsHits]);
+
+  // Create a Set of MPS hit entry IDs for quick lookup
+  const mpsHitIds = useMemo(() => {
+    return new Set(mpsHits.map(hit => hit.id).filter(Boolean));
   }, [mpsHits]);
 
   const mpsWindowStatus = getMPSWindowStatus(lastMPSHitTime);
@@ -285,7 +294,7 @@ export function DailyProgress({
                     <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                       <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
                       <span className="font-mono">
-                        {Math.floor(mpsWindowStatus.minutesSince / 60)}
+                        {String(Math.floor(mpsWindowStatus.minutesSince / 60)).padStart(2, '0')}
                         <span className={colonVisible ? 'opacity-100' : 'opacity-0'}>:</span>
                         {String(mpsWindowStatus.minutesSince % 60).padStart(2, '0')}
                       </span>
@@ -383,11 +392,16 @@ export function DailyProgress({
                         {formatTime(entry.consumedAt || entry.createdAt)}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-sm font-semibold text-primary">{entry.protein}g</span>
-                      {calorieTrackingEnabled && entry.calories ? (
-                        <p className="text-xs text-amber-600">{entry.calories} kcal</p>
-                      ) : null}
+                    <div className="text-right flex items-center gap-1.5">
+                      {mpsTrackingEnabled && entry.id && mpsHitIds.has(entry.id) && (
+                        <Dumbbell className="h-3.5 w-3.5 text-purple-500" />
+                      )}
+                      <div>
+                        <span className="text-sm font-semibold text-primary">{entry.protein}g</span>
+                        {calorieTrackingEnabled && entry.calories ? (
+                          <p className="text-xs text-amber-600">{entry.calories} kcal</p>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </SwipeableRow>

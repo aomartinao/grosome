@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { CheckCircle, Loader2, Send, Sparkles } from 'lucide-react';
+import { CheckCircle, Dumbbell, Loader2, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { refineAnalysis } from '@/services/ai/client';
 import { useSettings } from '@/hooks/useProteinData';
+import { calculateMPSHits } from '@/lib/utils';
 import type { FoodEntry, DailyStats } from '@/types';
 
 interface HistoryListProps {
@@ -143,6 +144,21 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
     return result;
   }, [entries, goals, defaultGoal]);
 
+  // Calculate MPS hits for all entries to mark them with an icon
+  const mpsHitIds = useMemo(() => {
+    if (!settings.mpsTrackingEnabled) return new Set<number>();
+
+    // Calculate MPS hits per day
+    const allHitIds = new Set<number>();
+    for (const day of groupedByDate) {
+      const dayHits = calculateMPSHits(day.entries);
+      for (const hit of dayHits) {
+        if (hit.id) allHitIds.add(hit.id);
+      }
+    }
+    return allHitIds;
+  }, [groupedByDate, settings.mpsTrackingEnabled]);
+
   if (entries.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -214,11 +230,16 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
                     </div>
 
                     {/* Stats */}
-                    <div className="text-right flex-shrink-0">
-                      <span className="font-bold text-primary">{entry.protein}g</span>
-                      {calorieTrackingEnabled && entry.calories ? (
-                        <p className="text-xs text-amber-600">{entry.calories} kcal</p>
-                      ) : null}
+                    <div className="text-right flex-shrink-0 flex items-center gap-1.5">
+                      {settings.mpsTrackingEnabled && entry.id && mpsHitIds.has(entry.id) && (
+                        <Dumbbell className="h-3.5 w-3.5 text-purple-500" />
+                      )}
+                      <div>
+                        <span className="font-bold text-primary">{entry.protein}g</span>
+                        {calorieTrackingEnabled && entry.calories ? (
+                          <p className="text-xs text-amber-600">{entry.calories} kcal</p>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </SwipeableRow>
