@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIAnalysisResult, ConfidenceLevel, ConsumedAtInfo } from '@/types';
+import { sendProxyRequest, parseProxyResponse, type ProxyMessageContent } from './proxy';
 
 function buildFoodAnalysisPrompt(): string {
   return `You are a nutrition expert analyzing food images and descriptions to estimate protein AND calorie content for the ENTIRE item being consumed.
@@ -51,16 +52,12 @@ Respond in JSON format only:
 }
 
 export async function analyzeFood(
-  apiKey: string,
-  input: { text?: string; imageBase64?: string }
+  apiKey: string | null,
+  input: { text?: string; imageBase64?: string },
+  useProxy = false
 ): Promise<AIAnalysisResult> {
-  const client = new Anthropic({
-    apiKey,
-    dangerouslyAllowBrowser: true,
-  });
-
-  const content: Anthropic.MessageParam['content'] = [];
   const currentTime = new Date().toISOString();
+  const content: (Anthropic.MessageParam['content'][number] | ProxyMessageContent)[] = [];
 
   if (input.imageBase64) {
     // Extract base64 data from data URL if present
@@ -90,26 +87,49 @@ export async function analyzeFood(
     });
   }
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 500,
-    system: buildFoodAnalysisPrompt(),
-    messages: [
-      {
-        role: 'user',
-        content,
-      },
-    ],
-  });
+  let responseText: string;
 
-  // Extract text content from response
-  const textContent = response.content.find((block) => block.type === 'text');
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text response from AI');
+  if (useProxy) {
+    // Use the proxy Edge Function (admin-provided key)
+    const proxyResponse = await sendProxyRequest({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      system: buildFoodAnalysisPrompt(),
+      messages: [{ role: 'user', content: content as ProxyMessageContent[] }],
+      request_type: 'food_analysis',
+    });
+    responseText = parseProxyResponse(proxyResponse);
+  } else {
+    // Use direct Anthropic SDK (user's own key)
+    if (!apiKey) {
+      throw new Error('API key required for direct API calls');
+    }
+    const client = new Anthropic({
+      apiKey,
+      dangerouslyAllowBrowser: true,
+    });
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      system: buildFoodAnalysisPrompt(),
+      messages: [
+        {
+          role: 'user',
+          content: content as Anthropic.MessageParam['content'],
+        },
+      ],
+    });
+
+    const textContent = response.content.find((block) => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text response from AI');
+    }
+    responseText = textContent.text;
   }
 
   // Parse JSON response
-  const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error('Could not parse AI response');
   }
@@ -136,17 +156,19 @@ export async function analyzeFood(
 }
 
 export async function parseTextEntry(
-  apiKey: string,
-  text: string
+  apiKey: string | null,
+  text: string,
+  useProxy = false
 ): Promise<AIAnalysisResult> {
-  return analyzeFood(apiKey, { text });
+  return analyzeFood(apiKey, { text }, useProxy);
 }
 
 export async function analyzeImage(
-  apiKey: string,
-  imageBase64: string
+  apiKey: string | null,
+  imageBase64: string,
+  useProxy = false
 ): Promise<AIAnalysisResult> {
-  return analyzeFood(apiKey, { imageBase64 });
+  return analyzeFood(apiKey, { imageBase64 }, useProxy);
 }
 
 const REFINE_ANALYSIS_PROMPT = `You are a nutrition expert. The user has provided additional details about a food they already logged. Update the analysis based on this new information.
@@ -168,25 +190,14 @@ Respond in JSON format only:
 }`;
 
 export async function refineAnalysis(
-  apiKey: string,
+  apiKey: string | null,
   originalAnalysis: AIAnalysisResult,
-  userCorrection: string
+  userCorrection: string,
+  useProxy = false
 ): Promise<AIAnalysisResult> {
-  const client = new Anthropic({
-    apiKey,
-    dangerouslyAllowBrowser: true,
-  });
-
   const currentTime = new Date().toISOString();
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 500,
-    system: REFINE_ANALYSIS_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: `CURRENT TIME: ${currentTime}
+  const userContent = `CURRENT TIME: ${currentTime}
 
 Original analysis:
 - Food: ${originalAnalysis.foodName}
@@ -195,17 +206,43 @@ Original analysis:
 - Confidence: ${originalAnalysis.confidence}
 ${originalAnalysis.consumedAt ? `- Consumed at: ${originalAnalysis.consumedAt.parsedDate} ${originalAnalysis.consumedAt.parsedTime}` : ''}
 
-User's additional info: ${userCorrection}`,
-      },
-    ],
-  });
+User's additional info: ${userCorrection}`;
 
-  const textContent = response.content.find((block) => block.type === 'text');
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text response from AI');
+  let responseText: string;
+
+  if (useProxy) {
+    const proxyResponse = await sendProxyRequest({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      system: REFINE_ANALYSIS_PROMPT,
+      messages: [{ role: 'user', content: userContent }],
+      request_type: 'food_analysis',
+    });
+    responseText = parseProxyResponse(proxyResponse);
+  } else {
+    if (!apiKey) {
+      throw new Error('API key required for direct API calls');
+    }
+    const client = new Anthropic({
+      apiKey,
+      dangerouslyAllowBrowser: true,
+    });
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      system: REFINE_ANALYSIS_PROMPT,
+      messages: [{ role: 'user', content: userContent }],
+    });
+
+    const textContent = response.content.find((block) => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text response from AI');
+    }
+    responseText = textContent.text;
   }
 
-  const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error('Could not parse AI response');
   }

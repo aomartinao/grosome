@@ -322,25 +322,41 @@ export function Settings() {
 
         {/* AI Section */}
         <SettingsSection title="AI Analysis">
-          <SettingsRow
-            icon={Key}
-            iconColor={settings.claudeApiKey ? 'text-green-500' : 'text-muted-foreground'}
-            label="Claude API Key"
-            description={settings.claudeApiKey ? 'Configured' : 'Required for food analysis'}
-            onClick={() => {
-              setApiKey(settings.claudeApiKey || '');
-              setApiKeyDialogOpen(true);
-            }}
-            action={
-              settings.claudeApiKey ? (
+          {settings.hasAdminApiKey ? (
+            // Admin-provided key - user cannot see or modify
+            <SettingsRow
+              icon={Key}
+              iconColor="text-green-500"
+              label="API Access"
+              description="Admin-provided access enabled"
+              action={
                 <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
                   Active
                 </span>
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              )
-            }
-          />
+              }
+            />
+          ) : (
+            // User provides their own key
+            <SettingsRow
+              icon={Key}
+              iconColor={settings.claudeApiKey ? 'text-green-500' : 'text-muted-foreground'}
+              label="Claude API Key"
+              description={settings.claudeApiKey ? 'Configured' : 'Required for food analysis'}
+              onClick={() => {
+                setApiKey(settings.claudeApiKey || '');
+                setApiKeyDialogOpen(true);
+              }}
+              action={
+                settings.claudeApiKey ? (
+                  <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                    Active
+                  </span>
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )
+              }
+            />
+          )}
         </SettingsSection>
 
         {/* Data Section */}

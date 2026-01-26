@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { DietaryPreferences } from '@/types';
+import { sendProxyRequest, parseProxyResponse, type ProxyMessageContent } from './proxy';
 
 export interface AdvisorContext {
   goal: number;
@@ -144,41 +145,57 @@ RESPONSE FORMAT:
 }
 
 export async function getAdvisorSuggestion(
-  apiKey: string,
+  apiKey: string | null,
   userMessage: string,
   context: AdvisorContext,
-  conversationHistory: AdvisorMessage[] = []
+  conversationHistory: AdvisorMessage[] = [],
+  useProxy = false
 ): Promise<AdvisorResponse> {
-  const client = new Anthropic({
-    apiKey,
-    dangerouslyAllowBrowser: true,
-  });
-
   // Build messages from conversation history
-  const messages: Anthropic.MessageParam[] = conversationHistory.map((msg) => ({
-    role: msg.role,
+  const messages = conversationHistory.map((msg) => ({
+    role: msg.role as 'user' | 'assistant',
     content: msg.content,
   }));
 
   // Add the new user message
   messages.push({
-    role: 'user',
+    role: 'user' as const,
     content: userMessage,
   });
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1000,
-    system: buildSystemPrompt(context),
-    messages,
-  });
+  let fullText: string;
 
-  const textContent = response.content.find((block) => block.type === 'text');
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text response from AI');
+  if (useProxy) {
+    const proxyResponse = await sendProxyRequest({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: buildSystemPrompt(context),
+      messages,
+      request_type: 'advisor',
+    });
+    fullText = parseProxyResponse(proxyResponse);
+  } else {
+    if (!apiKey) {
+      throw new Error('API key required for direct API calls');
+    }
+    const client = new Anthropic({
+      apiKey,
+      dangerouslyAllowBrowser: true,
+    });
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: buildSystemPrompt(context),
+      messages: messages as Anthropic.MessageParam[],
+    });
+
+    const textContent = response.content.find((block) => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text response from AI');
+    }
+    fullText = textContent.text;
   }
-
-  const fullText = textContent.text;
 
   // Parse quick replies from the message
   // Look for pattern: [Option 1] [Option 2] [Option 3]
@@ -215,22 +232,18 @@ export async function getAdvisorSuggestion(
 }
 
 export async function analyzeMenuForUser(
-  apiKey: string,
+  apiKey: string | null,
   menuImageBase64: string,
   context: AdvisorContext,
-  additionalContext?: string
+  additionalContext?: string,
+  useProxy = false
 ): Promise<AdvisorResponse> {
-  const client = new Anthropic({
-    apiKey,
-    dangerouslyAllowBrowser: true,
-  });
-
   // Extract base64 data from data URL if present
   const base64Data = menuImageBase64.includes('base64,')
     ? menuImageBase64.split('base64,')[1]
     : menuImageBase64;
 
-  const userContent: Anthropic.MessageParam['content'] = [
+  const userContent: ProxyMessageContent[] = [
     {
       type: 'image',
       source: {
@@ -247,25 +260,47 @@ export async function analyzeMenuForUser(
     },
   ];
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1500,
-    system: buildSystemPrompt(context),
-    messages: [
-      {
-        role: 'user',
-        content: userContent,
-      },
-    ],
-  });
+  let responseText: string;
 
-  const textContent = response.content.find((block) => block.type === 'text');
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text response from AI');
+  if (useProxy) {
+    const proxyResponse = await sendProxyRequest({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1500,
+      system: buildSystemPrompt(context),
+      messages: [{ role: 'user', content: userContent }],
+      request_type: 'menu_analysis',
+    });
+    responseText = parseProxyResponse(proxyResponse);
+  } else {
+    if (!apiKey) {
+      throw new Error('API key required for direct API calls');
+    }
+    const client = new Anthropic({
+      apiKey,
+      dangerouslyAllowBrowser: true,
+    });
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1500,
+      system: buildSystemPrompt(context),
+      messages: [
+        {
+          role: 'user',
+          content: userContent as Anthropic.MessageParam['content'],
+        },
+      ],
+    });
+
+    const textContent = response.content.find((block) => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text response from AI');
+    }
+    responseText = textContent.text;
   }
 
   return {
-    message: textContent.text,
+    message: responseText,
   };
 }
 

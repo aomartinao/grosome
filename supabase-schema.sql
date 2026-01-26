@@ -255,3 +255,263 @@ create trigger update_chat_messages_updated_at
   before update on chat_messages
   for each row execute function update_updated_at_column();
 */
+
+
+-- ============================================
+-- ADMIN DASHBOARD & API KEY MANAGEMENT (V4)
+-- ============================================
+
+-- Enable vault extension for secure API key storage
+create extension if not exists "supabase_vault" with schema vault;
+
+-- Admin users table (users who can access the admin dashboard)
+create table if not exists admin_users (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamp with time zone default now(),
+  unique(user_id)
+);
+
+-- Admin-provided API keys (actual key stored in vault.secrets)
+-- This table links users to their admin-provided API key in the vault
+create table if not exists admin_api_keys (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  vault_secret_id uuid not null,  -- Reference to vault.secrets
+  is_active boolean default true,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now(),
+  created_by uuid references auth.users(id),  -- Which admin added it
+  unique(user_id)
+);
+
+-- Usage tracking for admin dashboard
+create table if not exists api_usage (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  request_type text not null,  -- 'food_analysis', 'advisor', 'menu_analysis'
+  tokens_in integer,
+  tokens_out integer,
+  model text,
+  created_at timestamp with time zone default now()
+);
+
+-- Indexes for admin tables
+create index if not exists admin_users_user_id_idx on admin_users(user_id);
+create index if not exists admin_api_keys_user_id_idx on admin_api_keys(user_id);
+create index if not exists admin_api_keys_vault_secret_id_idx on admin_api_keys(vault_secret_id);
+create index if not exists api_usage_user_id_idx on api_usage(user_id);
+create index if not exists api_usage_created_at_idx on api_usage(created_at);
+create index if not exists api_usage_request_type_idx on api_usage(request_type);
+
+-- Enable RLS on admin tables
+alter table admin_users enable row level security;
+alter table admin_api_keys enable row level security;
+alter table api_usage enable row level security;
+
+-- Drop existing admin policies if they exist
+drop policy if exists "Admins can view admin_users" on admin_users;
+drop policy if exists "Admins can insert admin_users" on admin_users;
+drop policy if exists "Admins can delete admin_users" on admin_users;
+drop policy if exists "Admins can view admin_api_keys" on admin_api_keys;
+drop policy if exists "Admins can insert admin_api_keys" on admin_api_keys;
+drop policy if exists "Admins can update admin_api_keys" on admin_api_keys;
+drop policy if exists "Admins can delete admin_api_keys" on admin_api_keys;
+drop policy if exists "Admins can view all api_usage" on api_usage;
+drop policy if exists "Service role can insert api_usage" on api_usage;
+drop policy if exists "Users can view own api_usage" on api_usage;
+
+-- Admin users policies: only admins can read/write
+create policy "Admins can view admin_users" on admin_users
+  for select using (
+    auth.uid() in (select user_id from admin_users)
+  );
+
+create policy "Admins can insert admin_users" on admin_users
+  for insert with check (
+    auth.uid() in (select user_id from admin_users)
+  );
+
+create policy "Admins can delete admin_users" on admin_users
+  for delete using (
+    auth.uid() in (select user_id from admin_users)
+  );
+
+-- Admin API keys policies: only admins can manage
+create policy "Admins can view admin_api_keys" on admin_api_keys
+  for select using (
+    auth.uid() in (select user_id from admin_users)
+  );
+
+create policy "Admins can insert admin_api_keys" on admin_api_keys
+  for insert with check (
+    auth.uid() in (select user_id from admin_users)
+  );
+
+create policy "Admins can update admin_api_keys" on admin_api_keys
+  for update using (
+    auth.uid() in (select user_id from admin_users)
+  );
+
+create policy "Admins can delete admin_api_keys" on admin_api_keys
+  for delete using (
+    auth.uid() in (select user_id from admin_users)
+  );
+
+-- API usage policies: admins can view all, users can view own
+create policy "Admins can view all api_usage" on api_usage
+  for select using (
+    auth.uid() in (select user_id from admin_users)
+  );
+
+create policy "Users can view own api_usage" on api_usage
+  for select using (
+    auth.uid() = user_id
+  );
+
+-- Service role can insert usage (from Edge Function)
+-- Note: Edge Functions use service role key which bypasses RLS
+-- But we add this policy for completeness
+create policy "Service role can insert api_usage" on api_usage
+  for insert with check (true);
+
+-- Trigger for admin_api_keys updated_at
+drop trigger if exists update_admin_api_keys_updated_at on admin_api_keys;
+create trigger update_admin_api_keys_updated_at
+  before update on admin_api_keys
+  for each row execute function update_updated_at_column();
+
+-- ============================================
+-- HELPER FUNCTIONS FOR ADMIN OPERATIONS
+-- ============================================
+
+-- Function to check if a user has an active admin API key
+-- This is safe to call from client as it doesn't expose the key
+create or replace function has_admin_api_key(target_user_id uuid)
+returns boolean as $$
+begin
+  return exists (
+    select 1 from admin_api_keys
+    where user_id = target_user_id
+    and is_active = true
+  );
+end;
+$$ language plpgsql security definer;
+
+-- Function for admins to add an API key for a user
+-- The key is stored in vault.secrets and only the reference is kept
+create or replace function admin_add_api_key(
+  target_user_id uuid,
+  api_key text
+)
+returns uuid as $$
+declare
+  secret_id uuid;
+  key_id uuid;
+begin
+  -- Verify caller is admin
+  if not exists (select 1 from admin_users where user_id = auth.uid()) then
+    raise exception 'Unauthorized: Only admins can add API keys';
+  end if;
+
+  -- Delete existing key if any
+  delete from admin_api_keys where user_id = target_user_id;
+
+  -- Store key in vault
+  insert into vault.secrets (secret, name, description)
+  values (
+    api_key,
+    'anthropic_key_' || target_user_id::text,
+    'Anthropic API key for user ' || target_user_id::text
+  )
+  returning id into secret_id;
+
+  -- Create link record
+  insert into admin_api_keys (user_id, vault_secret_id, created_by)
+  values (target_user_id, secret_id, auth.uid())
+  returning id into key_id;
+
+  return key_id;
+end;
+$$ language plpgsql security definer;
+
+-- Function for admins to revoke an API key
+create or replace function admin_revoke_api_key(target_user_id uuid)
+returns boolean as $$
+declare
+  secret_id uuid;
+begin
+  -- Verify caller is admin
+  if not exists (select 1 from admin_users where user_id = auth.uid()) then
+    raise exception 'Unauthorized: Only admins can revoke API keys';
+  end if;
+
+  -- Get the vault secret id
+  select vault_secret_id into secret_id
+  from admin_api_keys
+  where user_id = target_user_id;
+
+  if secret_id is null then
+    return false;
+  end if;
+
+  -- Delete from admin_api_keys
+  delete from admin_api_keys where user_id = target_user_id;
+
+  -- Delete from vault
+  delete from vault.secrets where id = secret_id;
+
+  return true;
+end;
+$$ language plpgsql security definer;
+
+-- Function to get decrypted API key (only callable by service role in Edge Function)
+-- This uses the decrypted_secrets view which requires service role
+create or replace function get_admin_api_key_for_user(target_user_id uuid)
+returns text as $$
+declare
+  api_key text;
+begin
+  select ds.decrypted_secret into api_key
+  from admin_api_keys aak
+  join vault.decrypted_secrets ds on ds.id = aak.vault_secret_id
+  where aak.user_id = target_user_id
+  and aak.is_active = true;
+
+  return api_key;
+end;
+$$ language plpgsql security definer;
+
+-- ============================================
+-- VIEWS FOR ADMIN DASHBOARD
+-- ============================================
+
+-- View for user stats (only accessible by admins via RLS on underlying tables)
+create or replace view user_stats as
+select
+  u.id as user_id,
+  u.email,
+  u.created_at as signed_up_at,
+  u.last_sign_in_at,
+  (select count(*) from food_entries fe where fe.user_id = u.id and fe.deleted_at is null) as food_entries_count,
+  (select count(*) from chat_messages cm where cm.user_id = u.id and cm.deleted_at is null) as chat_messages_count,
+  (select count(*) from api_usage au where au.user_id = u.id) as api_requests_count,
+  (select max(created_at) from api_usage au where au.user_id = u.id) as last_api_request,
+  exists(select 1 from admin_api_keys aak where aak.user_id = u.id and aak.is_active = true) as has_admin_key
+from auth.users u;
+
+-- Grant access to the view for authenticated users (RLS will filter)
+grant select on user_stats to authenticated;
+
+-- ============================================
+-- INITIAL ADMIN SETUP
+-- Run this once to set up the first admin
+-- ============================================
+
+-- Insert the initial admin (martin.holecko@gmail.com)
+-- This needs to be run after the user has signed up
+/*
+insert into admin_users (user_id)
+select id from auth.users where email = 'martin.holecko@gmail.com'
+on conflict (user_id) do nothing;
+*/

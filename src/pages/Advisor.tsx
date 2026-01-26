@@ -387,7 +387,10 @@ export function Advisor() {
       timestamp: new Date(),
     });
 
-    if (!settings.claudeApiKey) {
+    const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+    const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
+
+    if (!hasApiAccess) {
       queueMessages(['Please add your Claude API key in Settings to use Food Buddy.']);
       return;
     }
@@ -406,10 +409,11 @@ export function Advisor() {
     try {
       const context = getAdvisorContext();
       const result = await getAdvisorSuggestion(
-        settings.claudeApiKey,
+        settings.claudeApiKey || null,
         text,
         context,
-        advisorHistory
+        advisorHistory,
+        useProxy
       );
 
       setAdvisorHistory([
@@ -444,7 +448,10 @@ export function Advisor() {
       timestamp: new Date(),
     });
 
-    if (!settings.claudeApiKey) {
+    const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+    const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
+
+    if (!hasApiAccess) {
       queueMessages(['Please add your Claude API key in Settings to analyze menus.']);
       return;
     }
@@ -463,9 +470,11 @@ export function Advisor() {
     try {
       const context = getAdvisorContext();
       const result = await analyzeMenuForUser(
-        settings.claudeApiKey,
+        settings.claudeApiKey || null,
         imageData,
-        context
+        context,
+        undefined,
+        useProxy
       );
 
       updateMessage(loadingSyncId, {

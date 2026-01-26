@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Settings, LogOut, Trash2 } from 'lucide-react';
+import { Settings, LogOut, Trash2, CalendarCheck } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { version } from '../../../package.json';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
@@ -19,14 +20,19 @@ import {
 export function Header() {
   const location = useLocation();
   const { user, signOut } = useAuthStore();
-  const { clearMessages, clearAdvisorMessages } = useStore();
+  const { clearMessages, clearAdvisorMessages, dashboardShowTodayButton, dashboardOnToday } = useStore();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [advisorClearDialogOpen, setAdvisorClearDialogOpen] = useState(false);
 
   const getTitle = () => {
     switch (location.pathname) {
       case '/':
-        return 'Protee';
+        return (
+          <span className="flex items-center gap-2">
+            Protee
+            <span className="text-xs font-normal text-muted-foreground">v{version}</span>
+          </span>
+        );
       case '/chat':
         return 'Log Food';
       case '/history':
@@ -43,6 +49,7 @@ export function Header() {
   const isSettingsPage = location.pathname === '/settings';
   const isChatPage = location.pathname === '/chat';
   const isAdvisorPage = location.pathname === '/advisor';
+  const isDashboardPage = location.pathname === '/';
 
   const handleClearChat = async () => {
     await clearAllChatMessages();
@@ -96,6 +103,21 @@ export function Header() {
           <span className="sr-only">Sign out</span>
         </Button>
       ) : null;
+    }
+
+    // On Dashboard, show Today button when viewing past days
+    if (isDashboardPage && dashboardShowTodayButton && dashboardOnToday) {
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="rounded-full hover:bg-muted gap-1.5"
+          onClick={dashboardOnToday}
+        >
+          <CalendarCheck className="h-4 w-4" />
+          Today
+        </Button>
+      );
     }
 
     return (

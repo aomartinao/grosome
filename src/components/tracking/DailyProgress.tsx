@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Flame, Dumbbell, Plus, ChevronLeft, ChevronRight, History, CalendarCheck } from 'lucide-react';
+import { Flame, Dumbbell, Plus, ChevronLeft, ChevronRight, History } from 'lucide-react';
 import { ProgressRing } from './ProgressRing';
 import { Button } from '@/components/ui/button';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
@@ -64,7 +64,6 @@ export function DailyProgress({
   isToday,
   onPrevDay,
   onNextDay,
-  onToday,
   onEditEntry,
   onDeleteEntry,
 }: DailyProgressProps) {
@@ -320,23 +319,11 @@ export function DailyProgress({
           {/* Divider */}
           <div className="h-10 w-px bg-border" />
 
-          {/* Entries count or Today button */}
-          {isToday ? (
-            <div className="flex flex-col items-center">
-              <span className="text-2xl font-bold text-foreground">{entries.length}</span>
-              <span className="text-xs text-muted-foreground">entries</span>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 gap-1.5"
-              onClick={onToday}
-            >
-              <CalendarCheck className="h-4 w-4" />
-              Today
-            </Button>
-          )}
+          {/* Entries count */}
+          <div className="flex flex-col items-center">
+            <span className="text-2xl font-bold text-foreground">{entries.length}</span>
+            <span className="text-xs text-muted-foreground">entries</span>
+          </div>
         </div>
 
         {/* Entries Section - Scrollable */}
@@ -416,7 +403,7 @@ export function DailyProgress({
       {isToday && (
         <Button
           size="icon"
-          className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg z-10"
+          className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-lg z-50"
           onClick={() => navigate('/chat')}
         >
           <Plus className="h-7 w-7" />

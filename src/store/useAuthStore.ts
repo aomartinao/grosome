@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User, Session } from '@supabase/supabase-js';
 import { getSupabase } from '@/services/supabase';
 import { fullSync, pushSettingsToCloud, pullSettingsFromCloud, clearSyncMeta, type SyncResult } from '@/services/sync';
+import { checkHasAdminApiKey } from '@/services/ai/proxy';
 import type { UserSettings } from '@/types';
 import { useStore } from './useStore';
 
@@ -34,6 +35,7 @@ interface AuthState {
   syncData: () => Promise<SyncResult>;
   syncSettings: (settings: UserSettings) => Promise<boolean>;
   loadSettingsFromCloud: () => Promise<UserSettings | null>;
+  checkAdminApiKey: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -170,6 +172,9 @@ export const useAuthStore = create<AuthState>()(
             // Always reload settings (they may have been pulled from cloud)
             await useStore.getState().reloadSettings();
 
+            // Check for admin API key status
+            await get().checkAdminApiKey();
+
             // Reload messages if any were pulled
             if ((result.messagesPulled || 0) > 0) {
               useStore.getState().reloadMessages();
@@ -196,6 +201,22 @@ export const useAuthStore = create<AuthState>()(
         const { user } = get();
         if (!user) return null;
         return pullSettingsFromCloud(user.id);
+      },
+
+      // Check if user has admin-provided API key
+      checkAdminApiKey: async () => {
+        const { user } = get();
+        if (!user) return false;
+
+        try {
+          const hasAdminKey = await checkHasAdminApiKey();
+          // Update the settings in the store
+          useStore.getState().setSettings({ hasAdminApiKey: hasAdminKey });
+          return hasAdminKey;
+        } catch (err) {
+          console.error('[Auth] Failed to check admin API key:', err);
+          return false;
+        }
       },
     }),
     {

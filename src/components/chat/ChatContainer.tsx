@@ -135,7 +135,10 @@ export function ChatContainer() {
       timestamp: new Date(),
     });
 
-    if (!settings.claudeApiKey) {
+    const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+    const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
+
+    if (!hasApiAccess) {
       await addMessage({
         syncId: crypto.randomUUID(),
         type: 'system',
@@ -168,7 +171,7 @@ export function ChatContainer() {
             : undefined,
         };
 
-        const result = await refineAnalysis(settings.claudeApiKey, originalAnalysis, text);
+        const result = await refineAnalysis(settings.claudeApiKey || null, originalAnalysis, text, useProxy);
 
         // Calculate consumedAt Date from parsed values
         let consumedAt: Date | undefined;
@@ -216,7 +219,7 @@ export function ChatContainer() {
     setIsAnalyzing(true);
 
     try {
-      const result = await analyzeFood(settings.claudeApiKey, { text });
+      const result = await analyzeFood(settings.claudeApiKey || null, { text }, useProxy);
 
       // Calculate consumedAt Date from parsed values
       let consumedAt: Date | undefined;
@@ -265,7 +268,10 @@ export function ChatContainer() {
       timestamp: new Date(),
     });
 
-    if (!settings.claudeApiKey) {
+    const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+    const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
+
+    if (!hasApiAccess) {
       await addMessage({
         syncId: crypto.randomUUID(),
         type: 'system',
@@ -288,7 +294,7 @@ export function ChatContainer() {
     setIsAnalyzing(true);
 
     try {
-      const result = await analyzeFood(settings.claudeApiKey, { imageBase64: imageData });
+      const result = await analyzeFood(settings.claudeApiKey || null, { imageBase64: imageData }, useProxy);
 
       // Calculate consumedAt Date from parsed values
       let consumedAt: Date | undefined;
@@ -421,7 +427,10 @@ export function ChatContainer() {
   };
 
   const handleRefineEdit = async () => {
-    if (!editRefinement.trim() || !settings.claudeApiKey) return;
+    const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+    const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
+
+    if (!editRefinement.trim() || !hasApiAccess) return;
 
     setIsRefining(true);
     try {
@@ -435,7 +444,7 @@ export function ChatContainer() {
           : undefined,
       };
 
-      const result = await refineAnalysis(settings.claudeApiKey, originalAnalysis, editRefinement);
+      const result = await refineAnalysis(settings.claudeApiKey || null, originalAnalysis, editRefinement, useProxy);
 
       // Update form fields with refined values
       setEditName(result.foodName);
@@ -615,7 +624,7 @@ export function ChatContainer() {
             </div>
 
             {/* AI Refinement Section */}
-            {settings.claudeApiKey && (
+            {(settings.claudeApiKey || settings.hasAdminApiKey) && (
               <div className="pt-4 border-t space-y-2">
                 <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
                   <Sparkles className="h-3.5 w-3.5" />

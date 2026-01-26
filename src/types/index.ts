@@ -23,6 +23,7 @@ export interface UserSettings {
   mpsTrackingEnabled?: boolean;      // Muscle Protein Synthesis hits tracking
   theme: 'light' | 'dark' | 'system';
   claudeApiKey?: string;     // user provides their own key
+  hasAdminApiKey?: boolean;  // true if admin has provided a concealed API key (read-only, from server)
   dietaryPreferences?: DietaryPreferences;  // for Food Buddy
   advisorOnboarded?: boolean;               // whether user completed advisor onboarding
   advisorOnboardingStarted?: boolean;       // whether user has started onboarding (enables settings)

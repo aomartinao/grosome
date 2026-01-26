@@ -71,7 +71,10 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
   };
 
   const handleRefineEdit = async () => {
-    if (!editRefinement.trim() || !settings.claudeApiKey) return;
+    const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+    const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
+
+    if (!editRefinement.trim() || !hasApiAccess) return;
 
     setIsRefining(true);
     try {
@@ -85,7 +88,7 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
           : undefined,
       };
 
-      const result = await refineAnalysis(settings.claudeApiKey, originalAnalysis, editRefinement);
+      const result = await refineAnalysis(settings.claudeApiKey || null, originalAnalysis, editRefinement, useProxy);
 
       setEditName(result.foodName);
       setEditProtein(result.protein.toString());

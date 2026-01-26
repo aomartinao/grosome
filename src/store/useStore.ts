@@ -46,6 +46,11 @@ interface AppState {
   // UI State
   isAnalyzing: boolean;
   setIsAnalyzing: (isAnalyzing: boolean) => void;
+
+  // Dashboard state (for header "Today" button)
+  dashboardShowTodayButton: boolean;
+  dashboardOnToday: (() => void) | null;
+  setDashboardState: (showToday: boolean, onToday: (() => void) | null) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -205,6 +210,14 @@ export const useStore = create<AppState>()(
       // UI state
       isAnalyzing: false,
       setIsAnalyzing: (isAnalyzing) => set({ isAnalyzing }),
+
+      // Dashboard state
+      dashboardShowTodayButton: false,
+      dashboardOnToday: null,
+      setDashboardState: (showToday, onToday) => set({
+        dashboardShowTodayButton: showToday,
+        dashboardOnToday: onToday
+      }),
     }),
     {
       name: 'protee-storage',

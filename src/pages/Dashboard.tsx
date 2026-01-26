@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { format, subDays, addDays, isToday, startOfDay } from 'date-fns';
 import { Loader2, Send, Sparkles } from 'lucide-react';
 import { DailyProgress } from '@/components/tracking/DailyProgress';
 import { useSettings, useStreak, useRecentEntries, useDeleteEntry } from '@/hooks/useProteinData';
+import { useStore } from '@/store/useStore';
 import { updateFoodEntry } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { refineAnalysis } from '@/services/ai/client';
@@ -23,6 +24,7 @@ export function Dashboard() {
   const { settings } = useSettings();
   const streak = useStreak(recentEntries, settings.defaultGoal);
   const deleteEntry = useDeleteEntry();
+  const { setDashboardState } = useStore();
 
   // Edit dialog state
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
@@ -89,7 +91,10 @@ export function Dashboard() {
   }, [editingEntry, editName, editProtein, editCalories, editTime]);
 
   const handleRefineEdit = useCallback(async () => {
-    if (!editRefinement.trim() || !settings.claudeApiKey) return;
+    const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+    const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
+
+    if (!editRefinement.trim() || !hasApiAccess) return;
 
     setIsRefining(true);
     try {
@@ -103,7 +108,7 @@ export function Dashboard() {
           : undefined,
       };
 
-      const result = await refineAnalysis(settings.claudeApiKey, originalAnalysis, editRefinement);
+      const result = await refineAnalysis(settings.claudeApiKey || null, originalAnalysis, editRefinement, useProxy);
 
       setEditName(result.foodName);
       setEditProtein(result.protein.toString());
@@ -120,7 +125,7 @@ export function Dashboard() {
     } finally {
       setIsRefining(false);
     }
-  }, [editRefinement, settings.claudeApiKey, editName, editProtein, editCalories, editTime, editingEntry]);
+  }, [editRefinement, settings.claudeApiKey, settings.hasAdminApiKey, editName, editProtein, editCalories, editTime, editingEntry]);
 
   const handleDeleteEntry = useCallback((id: number) => {
     deleteEntry(id);
@@ -128,6 +133,12 @@ export function Dashboard() {
 
   const canGoNext = !isToday(selectedDate);
   const isSelectedToday = isToday(selectedDate);
+
+  // Update header state for "Today" button
+  useEffect(() => {
+    setDashboardState(!isSelectedToday, handleToday);
+    return () => setDashboardState(false, null); // Cleanup when leaving Dashboard
+  }, [isSelectedToday, setDashboardState]);
 
   return (
     <div className="min-h-full flex flex-col">
