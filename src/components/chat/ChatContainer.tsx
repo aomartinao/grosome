@@ -561,7 +561,7 @@ export function ChatContainer() {
         setEditingEntry(null);
         setEditRefinement('');
       }}>
-        <DialogContent>
+        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Edit Entry</DialogTitle>
           </DialogHeader>

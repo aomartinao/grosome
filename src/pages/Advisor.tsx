@@ -111,6 +111,7 @@ export function Advisor() {
     addAdvisorMessage,
     updateAdvisorMessage,
     setAdvisorInitialized: setInitialized,
+    clearAdvisorMessages,
   } = useStore();
 
   const [advisorHistory, setAdvisorHistory] = useState<AdvisorMessage[]>([]);
@@ -241,6 +242,24 @@ export function Advisor() {
       ]);
     }
   }, [settingsLoaded, initialized, settings.advisorOnboarded, nickname, queueMessages, settings.advisorOnboardingStarted, updateSettings]);
+
+  // Handle sync completing after initialization - if advisorOnboarded becomes true
+  // while we're in the middle of onboarding, skip to completed state
+  useEffect(() => {
+    if (initialized && settings.advisorOnboarded && onboardingStep >= 0) {
+      // Sync pulled settings showing onboarding is complete - abort local onboarding
+      setOnboardingStep(-1);
+      clearAdvisorMessages();
+      const greetings = [
+        'How can I help today?',
+        'What can I do for you?',
+        "What's on your mind?",
+        'Ready when you are!',
+      ];
+      const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+      queueMessages([randomGreeting]);
+    }
+  }, [initialized, settings.advisorOnboarded, onboardingStep, clearAdvisorMessages, queueMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

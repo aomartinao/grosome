@@ -5,6 +5,7 @@ import { Flame, Dumbbell, Plus, ChevronLeft, ChevronRight, History } from 'lucid
 import { ProgressRing } from './ProgressRing';
 import { Button } from '@/components/ui/button';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { calculateMPSHits, cn, formatTime } from '@/lib/utils';
 import type { FoodEntry, StreakInfo } from '@/types';
 
@@ -99,7 +100,8 @@ export function DailyProgress({
 
   const mpsWindowStatus = getMPSWindowStatus(lastMPSHitTime);
 
-  const showDualRings = calorieTrackingEnabled && calorieGoal;
+  const effectiveCalorieGoal = calorieGoal || 2000; // Default to 2000 kcal
+  const showDualRings = calorieTrackingEnabled;
 
   // Swipe handlers for date navigation
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -202,7 +204,7 @@ export function DailyProgress({
                 />
                 <ProgressRing
                   current={totalCalories}
-                  goal={calorieGoal}
+                  goal={effectiveCalorieGoal}
                   size={140}
                   strokeWidth={10}
                   variant="calories"
@@ -252,21 +254,49 @@ export function DailyProgress({
 
           {/* MPS or Entries count */}
           {mpsTrackingEnabled ? (
-            <div className="flex flex-col items-center">
-              <div className="flex items-center gap-1.5 text-purple-500">
-                <Dumbbell className="h-5 w-5" />
-                <span className="text-2xl font-bold">{mpsHits.length}</span>
-                <span className="text-sm text-muted-foreground">/3</span>
-              </div>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                {mpsHits.length > 0 ? (
-                  <>
-                    <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
-                    {mpsWindowStatus.label}
-                  </>
-                ) : 'MPS hits'}
-              </span>
-            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex flex-col items-center focus:outline-none active:opacity-70 transition-opacity">
+                  <div className="flex items-center gap-1.5 text-purple-500">
+                    <Dumbbell className="h-5 w-5" />
+                    <span className="text-2xl font-bold">{mpsHits.length}</span>
+                    <span className="text-sm text-muted-foreground">/3</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    {mpsHits.length > 0 ? (
+                      <>
+                        <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
+                        {mpsWindowStatus.label}
+                      </>
+                    ) : 'MPS hits'}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">MPS = Muscle Protein Synthesis</h4>
+                  <p className="text-sm text-muted-foreground">
+                    MPS is the process your body uses to build and repair muscle tissue.
+                    To maximize MPS throughout the day, research suggests consuming protein-rich meals
+                    spaced at least 2 hours apart.
+                  </p>
+                  <div className="pt-2 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>How it's calculated:</strong> Each meal with ≥25g of protein counts as an MPS hit,
+                      but only if it's been 2+ hours since your last hit. Aim for 3 hits per day.
+                    </p>
+                  </div>
+                  <a
+                    href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3650697/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-xs text-primary hover:underline pt-1"
+                  >
+                    View research →
+                  </a>
+                </div>
+              </PopoverContent>
+            </Popover>
           ) : (
             <div className="flex flex-col items-center">
               <span className="text-2xl font-bold text-foreground">{entries.length}</span>
