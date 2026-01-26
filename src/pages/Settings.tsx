@@ -10,7 +10,9 @@ import {
   Zap,
   Dumbbell,
   Sparkles,
-  Database
+  Database,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { version } from '../../package.json';
 import { Button } from '@/components/ui/button';
@@ -155,8 +157,44 @@ export function Settings() {
   const [apiKey, setApiKey] = useState(settings.claudeApiKey || '');
   const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'current'>('idle');
 
   const proteinTrackingEnabled = settings.proteinTrackingEnabled !== false;
+
+  const handleCheckForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateStatus('checking');
+
+    try {
+      const registration = await navigator.serviceWorker?.getRegistration();
+      if (registration) {
+        await registration.update();
+
+        // Check if there's a waiting worker (new version available)
+        if (registration.waiting) {
+          setUpdateStatus('available');
+          // Tell the waiting service worker to take over
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          // Reload the page to get the new version
+          window.location.reload();
+        } else {
+          setUpdateStatus('current');
+          // Reset status after 2 seconds
+          setTimeout(() => setUpdateStatus('idle'), 2000);
+        }
+      } else {
+        // No service worker, just reload
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Failed to check for updates:', error);
+      // Fallback: just reload the page
+      window.location.reload();
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   // Calculate storage usage
   useEffect(() => {
@@ -331,7 +369,7 @@ export function Settings() {
         </SettingsSection>
 
         {/* Footer */}
-        <div className="pt-4 pb-2 text-center space-y-1">
+        <div className="pt-4 pb-2 text-center space-y-3">
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium">Protee</span>
@@ -340,6 +378,30 @@ export function Settings() {
           <p className="text-xs text-muted-foreground">
             AI-powered protein tracking
           </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCheckForUpdates}
+            disabled={isCheckingUpdate}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            {isCheckingUpdate ? (
+              <>
+                <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                Checking...
+              </>
+            ) : updateStatus === 'current' ? (
+              <>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Up to date
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-3 w-3 mr-1.5" />
+                Check for updates
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
