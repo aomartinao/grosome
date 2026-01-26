@@ -190,8 +190,6 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
     }
   }, [onDelete]);
 
-  // Calculate action button reveal (0 to 1)
-  const revealProgress = Math.min(1, Math.abs(translateX) / ACTION_WIDTH);
   const isFullSwipe = translateX < -FULL_SWIPE_THRESHOLD;
 
   return (
@@ -200,16 +198,19 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
         ref={containerRef}
         className={cn('relative overflow-hidden rounded-xl touch-pan-y', className)}
       >
-        {/* Action buttons - always rendered, revealed by translateX */}
-        <div className="absolute inset-y-0 right-0 flex">
+        {/* Action buttons - positioned to follow the card edge */}
+        <div
+          className="absolute inset-y-0 flex"
+          style={{
+            right: 0,
+            transform: `translateX(${Math.max(0, translateX + ACTION_WIDTH)}px)`,
+            transition: isAnimating ? 'transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
+          }}
+        >
           {onEdit && !isFullSwipe && (
             <button
               className="flex items-center justify-center bg-blue-500 text-white active:bg-blue-600 transition-colors"
-              style={{
-                width: EDIT_WIDTH,
-                opacity: revealProgress,
-                transform: `translateX(${(1 - revealProgress) * 20}px)`
-              }}
+              style={{ width: EDIT_WIDTH }}
               onClick={handleEditClick}
             >
               <Edit2 className="h-5 w-5" />
@@ -222,9 +223,7 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
                 isFullSwipe ? "bg-red-600" : "bg-destructive active:bg-red-600"
               )}
               style={{
-                width: isFullSwipe ? Math.abs(translateX) - (onEdit ? 0 : 0) : DELETE_WIDTH,
-                opacity: revealProgress,
-                transform: isFullSwipe ? 'none' : `translateX(${(1 - revealProgress) * 20}px)`
+                width: isFullSwipe ? Math.abs(translateX) - (onEdit ? EDIT_WIDTH : 0) : DELETE_WIDTH,
               }}
               onClick={handleDeleteClick}
             >
@@ -236,7 +235,7 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
 
         {/* Main content */}
         <div
-          className="relative bg-muted/50"
+          className="relative bg-muted"
           style={{
             transform: `translateX(${translateX}px)`,
             transition: isAnimating ? 'transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',

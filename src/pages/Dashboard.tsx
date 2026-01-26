@@ -7,6 +7,7 @@ import { useStore } from '@/store/useStore';
 import { updateFoodEntry } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { refineAnalysis } from '@/services/ai/client';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -94,17 +95,21 @@ export function Dashboard() {
     const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
     const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
 
-    if (!editRefinement.trim() || !hasApiAccess) return;
+    if (!editRefinement.trim() || !hasApiAccess || !editingEntry) return;
 
     setIsRefining(true);
     try {
+      // Pass the ORIGINAL entry data so Claude understands what was logged
+      // and can make relative adjustments (e.g., "add fries" adds to existing item)
       const originalAnalysis = {
-        foodName: editName,
-        protein: parseInt(editProtein, 10) || 0,
-        calories: editCalories ? parseInt(editCalories, 10) : 0,
-        confidence: editingEntry?.confidence || ('medium' as const),
-        consumedAt: editTime
-          ? { parsedDate: format(new Date(), 'yyyy-MM-dd'), parsedTime: editTime }
+        foodName: editingEntry.foodName,
+        protein: editingEntry.protein,
+        calories: editingEntry.calories || 0,
+        confidence: editingEntry.confidence || ('medium' as const),
+        consumedAt: editingEntry.consumedAt
+          ? { parsedDate: format(editingEntry.consumedAt, 'yyyy-MM-dd'), parsedTime: format(editingEntry.consumedAt, 'HH:mm') }
+          : editingEntry.createdAt
+          ? { parsedDate: format(editingEntry.createdAt, 'yyyy-MM-dd'), parsedTime: format(editingEntry.createdAt, 'HH:mm') }
           : undefined,
       };
 
@@ -125,7 +130,7 @@ export function Dashboard() {
     } finally {
       setIsRefining(false);
     }
-  }, [editRefinement, settings.claudeApiKey, settings.hasAdminApiKey, editName, editProtein, editCalories, editTime, editingEntry]);
+  }, [editRefinement, settings.claudeApiKey, settings.hasAdminApiKey, editingEntry]);
 
   const handleDeleteEntry = useCallback((id: number) => {
     deleteEntry(id);
@@ -165,86 +170,96 @@ export function Dashboard() {
             <DialogTitle>Edit Entry</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Food Name - prominent, larger input */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Food Name</label>
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="h-11"
+                className="h-12 text-base"
+                autoFocus={false}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Protein (g)</label>
+
+            {/* Protein, Calories, Time in compact grid */}
+            <div className={cn(
+              "grid gap-3",
+              settings.calorieTrackingEnabled ? "grid-cols-3" : "grid-cols-2"
+            )}>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Protein (g)</label>
                 <Input
                   type="number"
                   value={editProtein}
                   onChange={(e) => setEditProtein(e.target.value)}
                   min={0}
                   max={500}
-                  className="h-11"
+                  className="h-10"
                 />
               </div>
               {settings.calorieTrackingEnabled && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Calories</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Calories</label>
                   <Input
                     type="number"
                     value={editCalories}
                     onChange={(e) => setEditCalories(e.target.value)}
                     min={0}
                     max={10000}
-                    className="h-11"
+                    className="h-10"
                   />
                 </div>
               )}
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Time</label>
-              <Input
-                type="time"
-                value={editTime}
-                onChange={(e) => setEditTime(e.target.value)}
-                className="h-11"
-              />
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Time</label>
+                <Input
+                  type="time"
+                  value={editTime}
+                  onChange={(e) => setEditTime(e.target.value)}
+                  className="h-10"
+                />
+              </div>
             </div>
 
-            {/* AI Refinement Section */}
-            {settings.claudeApiKey && (
-              <div className="pt-4 border-t space-y-2">
-                <label className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Or describe what changed
+            {/* AI Refinement Section - more prominent */}
+            {(settings.claudeApiKey || settings.hasAdminApiKey) && (
+              <div className="pt-4 border-t space-y-3">
+                <label className="text-sm font-medium flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-purple-500" />
+                  Add details with AI
                 </label>
-                <div className="flex gap-2">
-                  <Input
-                    value={editRefinement}
-                    onChange={(e) => setEditRefinement(e.target.value)}
-                    placeholder="e.g., it was 200g not 100g, add fries..."
-                    disabled={isRefining}
-                    className="h-11"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleRefineEdit();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="secondary"
-                    className="h-11 w-11"
-                    onClick={handleRefineEdit}
-                    disabled={!editRefinement.trim() || isRefining}
-                  >
-                    {isRefining ? (
+                <Input
+                  value={editRefinement}
+                  onChange={(e) => setEditRefinement(e.target.value)}
+                  placeholder="e.g., it was 200g not 100g, add fries..."
+                  disabled={isRefining}
+                  className="h-11"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleRefineEdit();
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full h-10 gap-2"
+                  onClick={handleRefineEdit}
+                  disabled={!editRefinement.trim() || isRefining}
+                >
+                  {isRefining ? (
+                    <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
+                      Updating...
+                    </>
+                  ) : (
+                    <>
                       <Send className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                      Update with AI
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </div>
