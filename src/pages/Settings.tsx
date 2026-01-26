@@ -268,7 +268,7 @@ export function Settings() {
             icon={Dumbbell}
             iconColor="text-purple-500"
             label="MPS Hits"
-            description="≥25g protein, 2+ hours apart"
+            description="≥25g protein, 3+ hours apart"
             action={
               <Toggle
                 enabled={!!settings.mpsTrackingEnabled}

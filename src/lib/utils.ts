@@ -102,7 +102,7 @@ export function getConfidenceBadgeColor(confidence: 'high' | 'medium' | 'low'): 
  * Calculate MPS (Muscle Protein Synthesis) hits from food entries.
  * An MPS hit requires:
  * - At least 25g protein in a single entry
- * - At least 2 hours since the previous MPS hit
+ * - At least 3 hours since the previous MPS hit
  */
 export interface MPSHit {
   entry: { id?: number; foodName: string; protein: number; consumedAt?: Date; createdAt: Date };
@@ -113,7 +113,7 @@ export function calculateMPSHits<T extends { protein: number; consumedAt?: Date;
   entries: T[]
 ): T[] {
   const MIN_PROTEIN = 25;
-  const MIN_GAP_HOURS = 2;
+  const MIN_GAP_HOURS = 3;
   const MIN_GAP_MS = MIN_GAP_HOURS * 60 * 60 * 1000;
 
   // Filter entries with enough protein and sort by time

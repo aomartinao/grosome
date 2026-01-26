@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Flame, Dumbbell, Plus, ChevronLeft, ChevronRight, History } from 'lucide-react';
@@ -9,34 +9,30 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { calculateMPSHits, cn, formatTime } from '@/lib/utils';
 import type { FoodEntry, StreakInfo } from '@/types';
 
+// MPS window thresholds (in minutes)
+// Adding 5 minutes to account for eating time
+const MPS_RED_THRESHOLD = 125;    // 2:05 - still in refractory period
+const MPS_YELLOW_THRESHOLD = 185; // 3:05 - approaching optimal window
+// After 3:05 - green, ready for next hit
+
 function getMPSWindowStatus(lastHitTime: Date | null): {
   minutesSince: number | null;
-  label: string;
   dotColor: string;
 } {
   if (!lastHitTime) {
-    return { minutesSince: null, label: 'Ready', dotColor: 'bg-green-500' };
+    return { minutesSince: null, dotColor: 'bg-green-500' };
   }
 
   const now = new Date();
   const minutesSince = Math.floor((now.getTime() - lastHitTime.getTime()) / 60000);
 
-  if (minutesSince < 90) {
-    return { minutesSince, label: formatTimeSince(minutesSince), dotColor: 'bg-orange-500' };
-  } else if (minutesSince < 120) {
-    return { minutesSince, label: formatTimeSince(minutesSince), dotColor: 'bg-yellow-500' };
+  if (minutesSince < MPS_RED_THRESHOLD) {
+    return { minutesSince, dotColor: 'bg-red-500' };
+  } else if (minutesSince < MPS_YELLOW_THRESHOLD) {
+    return { minutesSince, dotColor: 'bg-amber-500' };
   } else {
-    return { minutesSince, label: formatTimeSince(minutesSince), dotColor: 'bg-green-500' };
+    return { minutesSince, dotColor: 'bg-green-500' };
   }
-}
-
-function formatTimeSince(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hours === 0) {
-    return `${mins}m`;
-  }
-  return `${hours}h ${mins}m`;
 }
 
 interface DailyProgressProps {
@@ -76,6 +72,28 @@ export function DailyProgress({
   const swipeStartX = useRef(0);
   const swipeStartY = useRef(0);
   const [isSwiping, setIsSwiping] = useState(false);
+
+  // MPS timer state - for live updating display
+  const [colonVisible, setColonVisible] = useState(true);
+  const [, setTickCount] = useState(0); // Force re-render every minute
+
+  // Blink the colon every second
+  useEffect(() => {
+    if (!mpsTrackingEnabled) return;
+    const blinkInterval = setInterval(() => {
+      setColonVisible((v) => !v);
+    }, 1000);
+    return () => clearInterval(blinkInterval);
+  }, [mpsTrackingEnabled]);
+
+  // Update time display every minute
+  useEffect(() => {
+    if (!mpsTrackingEnabled) return;
+    const minuteInterval = setInterval(() => {
+      setTickCount((c) => c + 1);
+    }, 60000);
+    return () => clearInterval(minuteInterval);
+  }, [mpsTrackingEnabled]);
 
   const totalProtein = useMemo(
     () => entries.reduce((sum, entry) => sum + entry.protein, 0),
@@ -262,38 +280,43 @@ export function DailyProgress({
                     <span className="text-2xl font-bold">{mpsHits.length}</span>
                     <span className="text-sm text-muted-foreground">/3</span>
                   </div>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    {mpsHits.length > 0 ? (
-                      <>
-                        <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
-                        {mpsWindowStatus.label}
-                      </>
-                    ) : 'MPS hits'}
-                  </span>
+                  <span className="text-xs text-muted-foreground">MPS hits</span>
+                  {mpsHits.length > 0 && mpsWindowStatus.minutesSince !== null && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
+                      <span className="font-mono">
+                        {Math.floor(mpsWindowStatus.minutesSince / 60)}
+                        <span className={colonVisible ? 'opacity-100' : 'opacity-0'}>:</span>
+                        {String(mpsWindowStatus.minutesSince % 60).padStart(2, '0')}
+                      </span>
+                    </span>
+                  )}
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-80">
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">MPS = Muscle Protein Synthesis</h4>
+                  <h4 className="font-semibold text-sm">Muscle Protein Synthesis (MPS)</h4>
                   <p className="text-sm text-muted-foreground">
-                    MPS is the process your body uses to build and repair muscle tissue.
-                    To maximize MPS throughout the day, research suggests consuming protein-rich meals
-                    spaced at least 2 hours apart.
+                    MPS is the process by which your body repairs and builds muscle in response to
+                    strength training and protein intake. To stimulate MPS effectively, aim for
+                    ~20–40g of high-quality protein per meal, spaced every 3–5 hours, for 3–4 protein
+                    intakes per day, each providing enough leucine to trigger muscle building (aka MPS hits).
+                    Consistently meeting total daily protein intake drives long-term muscle gain.
                   </p>
+                  <a
+                    href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5477153/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Source: ISSN Position Stand →
+                  </a>
                   <div className="pt-2 border-t border-border">
                     <p className="text-xs text-muted-foreground">
                       <strong>How it's calculated:</strong> Each meal with ≥25g of protein counts as an MPS hit,
-                      but only if it's been 2+ hours since your last hit. Aim for 3 hits per day.
+                      but only if it's been 3+ hours since your last hit. Aim for 3 hits per day.
                     </p>
                   </div>
-                  <a
-                    href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3650697/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-xs text-primary hover:underline pt-1"
-                  >
-                    View research →
-                  </a>
                 </div>
               </PopoverContent>
             </Popover>
