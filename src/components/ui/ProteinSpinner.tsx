@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ProteinSpinnerProps {
@@ -7,6 +8,35 @@ interface ProteinSpinnerProps {
 }
 
 export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinSpinnerProps) {
+  // Animate fold/unfold when spinning
+  const [animatedFold, setAnimatedFold] = useState(0);
+
+  useEffect(() => {
+    if (!isSpinning) {
+      setAnimatedFold(0);
+      return;
+    }
+
+    let animationFrame: number;
+    let startTime: number | null = null;
+    const duration = 1500; // 1.5 seconds per fold/unfold cycle
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+
+      // Oscillate between 0 and 1 using sine wave
+      const cycleProgress = (elapsed % (duration * 2)) / (duration * 2);
+      const fold = Math.sin(cycleProgress * Math.PI * 2) * 0.5 + 0.5;
+
+      setAnimatedFold(fold);
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [isSpinning]);
+
   // 8 amino acids for a more complex chain
   const aminoAcids = [0, 1, 2, 3, 4, 5, 6, 7];
 
@@ -22,7 +52,8 @@ export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinS
     '#ec4899', // pink - charged
   ];
 
-  const foldAmount = isSpinning ? 1 : progress;
+  // Use animated fold when spinning, otherwise use progress
+  const foldAmount = isSpinning ? animatedFold : progress;
 
   // Calculate positions for each amino acid
   const getPosition = (index: number) => {
@@ -59,12 +90,7 @@ export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinS
   });
 
   return (
-    <div
-      className={cn('relative w-10 h-10', className)}
-      style={{
-        animation: isSpinning ? 'spin 2s ease-in-out infinite' : undefined,
-      }}
-    >
+    <div className={cn('relative w-10 h-10', className)}>
       <svg viewBox="0 0 40 40" className="w-full h-full">
         {/* Backbone bonds - curved lines connecting amino acids */}
         {aminoAcids.slice(0, -1).map((i) => {
@@ -131,7 +157,6 @@ export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinS
               fill={colors[i]}
               style={{
                 filter: `brightness(${brightness})`,
-                transition: 'all 0.1s ease-out',
               }}
             />
           );
