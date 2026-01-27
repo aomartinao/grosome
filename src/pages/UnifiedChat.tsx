@@ -83,9 +83,25 @@ export function UnifiedChat() {
     };
   }, [settings, insights, nickname, messages]);
 
-  // Initialize with smart greeting
+  // Track if we've waited for insights to load
+  const [insightsReady, setInsightsReady] = useState(false);
+
+  // Wait a moment for insights to load before generating greeting
   useEffect(() => {
-    if (!settingsLoaded || !messagesLoaded || initialized) return;
+    if (!settingsLoaded || !messagesLoaded) return;
+    if (insightsReady) return;
+
+    // Small delay to let IndexedDB data load into insights
+    const timer = setTimeout(() => {
+      setInsightsReady(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [settingsLoaded, messagesLoaded, insightsReady]);
+
+  // Initialize with smart greeting once insights are ready
+  useEffect(() => {
+    if (!insightsReady || initialized) return;
     setInitialized(true);
 
     // Only show greeting if no recent messages (within last hour)
@@ -108,7 +124,7 @@ export function UnifiedChat() {
     if (greeting.quickReplies) {
       setShowQuickReplies(greeting.quickReplies);
     }
-  }, [settingsLoaded, messagesLoaded, initialized, getContext, addMessage, messages]);
+  }, [insightsReady, initialized, getContext, addMessage, messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
