@@ -9,7 +9,7 @@ import {
   addMonths,
   getDay,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Dumbbell, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { calculateMPSHits } from '@/lib/utils';
@@ -175,12 +175,6 @@ export function CalendarView({
           <p className="text-xs text-muted-foreground mt-0.5">Calories avg</p>
         </div>
       </div>
-      {mpsTrackingEnabled && monthStats.totalMpsHits > 0 && (
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Dumbbell className="h-4 w-4 text-purple-500" />
-          <span><span className="font-semibold text-purple-600">{monthStats.totalMpsHits}</span> MPS hits this month</span>
-        </div>
-      )}
 
       {/* Calendar */}
       <div className="bg-card rounded-2xl p-4 shadow-sm">
@@ -217,7 +211,7 @@ export function CalendarView({
                 className={cn(
                   'aspect-square flex flex-col items-center justify-center rounded-xl text-sm relative transition-colors',
                   isToday && 'ring-2 ring-primary ring-offset-1',
-                  goalMet && 'bg-green-50 dark:bg-green-950/30',
+                  goalMet && 'bg-green-100 dark:bg-green-900/50',
                   !isSameMonth(day, currentMonth) && 'opacity-40'
                 )}
               >
@@ -225,7 +219,7 @@ export function CalendarView({
                   className={cn(
                     'font-medium text-sm',
                     isToday && 'text-primary font-bold',
-                    goalMet && !isToday && 'text-green-600 dark:text-green-400',
+                    goalMet && !isToday && 'text-green-700 dark:text-green-300',
                     !hasEntry && !isToday && 'text-muted-foreground'
                   )}
                 >
@@ -234,7 +228,7 @@ export function CalendarView({
                 {hasEntry && (
                   <span className={cn(
                     'text-[10px] font-medium mt-0.5',
-                    goalMet ? 'text-green-600 dark:text-green-400' : 'text-primary'
+                    goalMet ? 'text-green-700 dark:text-green-300' : 'text-primary'
                   )}>
                     {protein}g
                   </span>
@@ -254,7 +248,7 @@ export function CalendarView({
           <span>Today</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800" />
+          <div className="w-3 h-3 rounded-md bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-700" />
           <span>Goal met</span>
         </div>
         {mpsTrackingEnabled && (
