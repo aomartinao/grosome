@@ -363,3 +363,33 @@ export async function deleteChatMessage(id: number): Promise<void> {
 export async function clearAllChatMessages(): Promise<void> {
   await db.chatMessages.clear();
 }
+
+// Clean up old chat messages (hard delete, not soft delete)
+export async function cleanupOldChatMessages(olderThanDays: number = 7): Promise<number> {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+  const cutoffISO = cutoffDate.toISOString();
+
+  // Get all messages and filter old ones
+  const allMessages = await db.chatMessages.toArray();
+  const oldMessageIds: number[] = [];
+
+  for (const msg of allMessages) {
+    const timestamp = msg.timestamp;
+    // Handle both Date objects and ISO strings
+    const msgDate = typeof timestamp === 'string' ? timestamp :
+      timestamp instanceof Date ? timestamp.toISOString() : null;
+
+    if (msgDate && msgDate < cutoffISO && msg.id) {
+      oldMessageIds.push(msg.id);
+    }
+  }
+
+  // Hard delete old messages
+  if (oldMessageIds.length > 0) {
+    await db.chatMessages.bulkDelete(oldMessageIds);
+    console.log(`[DB] Cleaned up ${oldMessageIds.length} old chat messages`);
+  }
+
+  return oldMessageIds.length;
+}

@@ -11,7 +11,7 @@ import { useProgressInsights } from '@/hooks/useProgressInsights';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
-import { addFoodEntry, deleteFoodEntryBySyncId } from '@/db';
+import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits } from '@/lib/utils';
 import {
@@ -29,8 +29,8 @@ interface PendingFood {
   imageData?: string;
 }
 
-// Only show messages from the last 3 days
-const CHAT_HISTORY_DAYS = 3;
+// Show messages from the last week, auto-cleanup older ones
+const CHAT_HISTORY_DAYS = 7;
 
 export function UnifiedChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -84,6 +84,11 @@ export function UnifiedChat() {
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
+
+  // Cleanup old messages on mount (older than 1 week)
+  useEffect(() => {
+    cleanupOldChatMessages(CHAT_HISTORY_DAYS);
+  }, []);
 
   // Build context for AI
   const getContext = useCallback((): UnifiedContext => {
