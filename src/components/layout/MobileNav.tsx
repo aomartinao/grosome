@@ -11,23 +11,43 @@ const navItems = [
 
 export function MobileNav() {
   return (
-    <nav className="fixed bottom-4 left-4 right-4 z-50 floating-nav rounded-2xl safe-area-inset-bottom">
-      <div className="flex items-center justify-around h-16">
+    <nav className="fixed bottom-4 left-4 right-4 z-50 floating-nav safe-area-inset-bottom">
+      <div className="flex items-center justify-around h-14 px-2">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center justify-center flex-1 h-full gap-1 text-xs transition-all duration-200 rounded-xl mx-1',
+                'flex flex-col items-center justify-center flex-1 h-11 gap-0.5 text-[11px] transition-all duration-300 rounded-full mx-0.5',
                 isActive
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                  ? 'text-primary scale-105'
+                  : 'text-muted-foreground/70 hover:text-foreground active:scale-95'
               )
             }
           >
-            <Icon className={cn('h-5 w-5 transition-transform duration-200')} />
-            <span className="font-medium">{label}</span>
+            {({ isActive }) => (
+              <>
+                <div className={cn(
+                  'relative p-1.5 rounded-full transition-all duration-300',
+                  isActive && 'bg-primary/15'
+                )}>
+                  <Icon className={cn(
+                    'h-5 w-5 transition-all duration-300',
+                    isActive && 'drop-shadow-sm'
+                  )} />
+                  {isActive && (
+                    <div className="absolute inset-0 rounded-full bg-primary/10 blur-md -z-10" />
+                  )}
+                </div>
+                <span className={cn(
+                  'font-medium transition-all duration-300',
+                  isActive ? 'opacity-100' : 'opacity-70'
+                )}>
+                  {label}
+                </span>
+              </>
+            )}
           </NavLink>
         ))}
       </div>
