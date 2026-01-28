@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { Chat } from '@/pages/Chat';
@@ -11,17 +11,11 @@ import { SwipeProvider } from '@/context/SwipeContext';
 import { initializeAuth, useAuthStore } from '@/store/useAuthStore';
 import { hasFeature } from '@/lib/features';
 
-// Beta users get unified chat for both logging and coaching
-function ChatOrUnified() {
+// Coach page - unified experience for beta users, old Chat for others
+function CoachPage() {
   const { user } = useAuthStore();
   const isBeta = hasFeature('buddy-v2', user?.email);
   return isBeta ? <UnifiedChat /> : <Chat />;
-}
-
-function AdvisorOrUnified() {
-  const { user } = useAuthStore();
-  const isBeta = hasFeature('buddy-v2', user?.email);
-  return isBeta ? <UnifiedChat /> : <Advisor />;
 }
 
 function App() {
@@ -36,8 +30,10 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
-            <Route path="chat" element={<ChatOrUnified />} />
-            <Route path="advisor" element={<AdvisorOrUnified />} />
+            <Route path="coach" element={<CoachPage />} />
+            {/* Legacy routes redirect to /coach */}
+            <Route path="chat" element={<Navigate to="/coach" replace />} />
+            <Route path="advisor" element={<Navigate to="/coach" replace />} />
             <Route path="history" element={<History />} />
             <Route path="settings" element={<Settings />} />
           </Route>

@@ -388,7 +388,7 @@ export function DailyProgress({
                 "flex flex-col items-center justify-center py-8 text-center",
                 isToday && "cursor-pointer hover:bg-muted/30 rounded-xl transition-colors"
               )}
-              onClick={isToday ? () => navigate('/chat') : undefined}
+              onClick={isToday ? () => navigate('/coach') : undefined}
             >
               <p className="text-muted-foreground">
                 {isToday ? 'Tap here to log your first meal' : 'No entries this day'}

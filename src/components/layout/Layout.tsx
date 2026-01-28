@@ -19,8 +19,8 @@ export function Layout() {
     await syncData();
   }, [syncData, user]);
 
-  // Disable pull-to-refresh on chat and advisor pages (they have their own scroll containers)
-  const disablePullToRefresh = location.pathname === '/chat' || location.pathname === '/advisor';
+  // Disable pull-to-refresh on coach page (has its own scroll container)
+  const disablePullToRefresh = location.pathname === '/coach' || location.pathname === '/chat' || location.pathname === '/advisor';
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -45,7 +45,7 @@ export function Layout() {
         <Button
           size="icon"
           className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-lg z-50"
-          onClick={() => navigate('/chat')}
+          onClick={() => navigate('/coach')}
         >
           <Plus className="h-7 w-7" />
         </Button>

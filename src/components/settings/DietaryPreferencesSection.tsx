@@ -144,9 +144,9 @@ export function DietaryPreferencesSection() {
     }
   };
 
-  const handleGoToBuddy = () => {
+  const handleGoToCoach = () => {
     setLockedDialogOpen(false);
-    navigate('/advisor');
+    navigate('/coach');
   };
 
   const updatePreferences = (field: keyof DietaryPreferences, value: string[] | string) => {
@@ -293,12 +293,12 @@ export function DietaryPreferencesSection() {
               Initial Setup Required
             </DialogTitle>
             <DialogDescription>
-              Food Buddy preferences are set up through a quick chat in the Buddy tab. This helps me understand your needs better.
+              Preferences are set up through a quick chat with your Coach. This helps me understand your needs better.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button onClick={handleGoToBuddy} className="w-full">
-              Go to Food Buddy
+            <Button onClick={handleGoToCoach} className="w-full">
+              Go to Coach
             </Button>
             <Button variant="outline" onClick={handleProceedAnyway} className="w-full">
               Edit here instead

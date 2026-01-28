@@ -78,22 +78,21 @@ export function Header() {
             )}
           </span>
         );
+      case '/coach':
       case '/chat':
-        return 'Log Food';
+      case '/advisor':
+        return 'Coach';
       case '/history':
         return 'History';
       case '/settings':
         return 'Settings';
-      case '/advisor':
-        return 'Food Buddy (beta)';
       default:
         return 'Protee';
     }
   };
 
   const isSettingsPage = location.pathname === '/settings';
-  const isChatPage = location.pathname === '/chat';
-  const isAdvisorPage = location.pathname === '/advisor';
+  const isCoachPage = location.pathname === '/coach' || location.pathname === '/chat' || location.pathname === '/advisor';
   const isDashboardPage = location.pathname === '/';
 
   const handleClearChat = async () => {
@@ -108,27 +107,13 @@ export function Header() {
   };
 
   const renderHeaderAction = () => {
-    if (isChatPage) {
+    if (isCoachPage) {
       return (
         <Button
           variant="ghost"
           size="icon"
           className="rounded-full hover:bg-muted text-muted-foreground hover:text-destructive"
           onClick={() => setClearDialogOpen(true)}
-        >
-          <Trash2 className="h-5 w-5" />
-          <span className="sr-only">Clear chat</span>
-        </Button>
-      );
-    }
-
-    if (isAdvisorPage) {
-      return (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full hover:bg-muted text-muted-foreground hover:text-destructive"
-          onClick={() => setAdvisorClearDialogOpen(true)}
         >
           <Trash2 className="h-5 w-5" />
           <span className="sr-only">Clear chat</span>
