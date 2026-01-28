@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { subDays } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { FoodCard } from '@/components/chat/FoodCard';
 import { LoggedFoodCard } from '@/components/chat/LoggedFoodCard';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { ChatInput } from '@/components/chat/ChatInput';
-import { useSettings } from '@/hooks/useProteinData';
+import { useSettings, useRecentEntries } from '@/hooks/useProteinData';
 import { useProgressInsights } from '@/hooks/useProgressInsights';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
@@ -13,7 +14,6 @@ import { getNickname } from '@/lib/nicknames';
 import { addFoodEntry, deleteFoodEntryBySyncId } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits } from '@/lib/utils';
-import { useTodayEntries } from '@/hooks/useProteinData';
 import {
   processUnifiedMessage,
   generateSmartGreeting,
@@ -29,27 +29,50 @@ interface PendingFood {
   imageData?: string;
 }
 
+// Only show messages from the last 3 days
+const CHAT_HISTORY_DAYS = 3;
+
 export function UnifiedChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { settings, settingsLoaded } = useSettings();
   const { user } = useAuthStore();
   const insights = useProgressInsights();
   const nickname = getNickname(user?.email);
-  const todayEntries = useTodayEntries();
 
-  // Calculate which entries are MPS hits
+  // Get food entries from recent days to build lookup map
+  const recentEntries = useRecentEntries(CHAT_HISTORY_DAYS);
+
+  // Build lookup map of entries by syncId (for messages that only have foodEntrySyncId)
+  const entriesBySyncId = useMemo(() => {
+    const map = new Map<string, FoodEntry>();
+    for (const entry of recentEntries) {
+      if (entry.syncId) {
+        map.set(entry.syncId, entry);
+      }
+    }
+    return map;
+  }, [recentEntries]);
+
+  // Calculate which entries are MPS hits (today only)
+  const todayEntries = recentEntries.filter(e => e.date === getToday());
   const mpsHitSyncIds = useMemo(() => {
     const hits = calculateMPSHits(todayEntries);
     return new Set(hits.map(h => h.syncId).filter(Boolean));
   }, [todayEntries]);
 
   const {
-    messages,
+    messages: allMessages,
     messagesLoaded,
     addMessage,
     updateMessage,
     loadMessages,
   } = useStore();
+
+  // Filter messages to only show last N days
+  const cutoffDate = subDays(new Date(), CHAT_HISTORY_DAYS);
+  const messages = useMemo(() => {
+    return allMessages.filter(m => new Date(m.timestamp) >= cutoffDate);
+  }, [allMessages, cutoffDate]);
 
   const [chatHistory, setChatHistory] = useState<UnifiedMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -422,14 +445,14 @@ export function UnifiedChat() {
   // Loading state
   if (!settingsLoaded || !messagesLoaded) {
     return (
-      <div className="flex flex-col h-full items-center justify-center">
+      <div className="flex flex-col flex-1 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Compact progress bar */}
       <div className="px-4 py-2 border-b bg-muted/30">
         <div className="flex items-center justify-between text-sm">
@@ -453,12 +476,16 @@ export function UnifiedChat() {
       <div className="flex-1 overflow-y-auto p-4 pb-2 min-h-0 scroll-smooth overscroll-contain">
         {messages.map((message, index) => {
           // Show LoggedFoodCard for messages with confirmed food entries
-          if (message.foodEntry && message.foodEntrySyncId) {
+          // Check both message.foodEntry (new) and lookup by syncId (old messages)
+          const foodEntry = message.foodEntry ||
+            (message.foodEntrySyncId ? entriesBySyncId.get(message.foodEntrySyncId) : undefined);
+
+          if (foodEntry && message.foodEntrySyncId) {
             const isMPSHit = mpsHitSyncIds.has(message.foodEntrySyncId);
             return (
               <div key={message.syncId} className="mb-3">
                 <LoggedFoodCard
-                  entry={message.foodEntry}
+                  entry={foodEntry}
                   showCalories={settings.calorieTrackingEnabled}
                   isMPSHit={isMPSHit}
                 />
