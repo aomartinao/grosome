@@ -211,7 +211,7 @@ export function CalendarView({
                 className={cn(
                   'aspect-square flex flex-col items-center justify-center rounded-xl text-sm relative transition-colors',
                   isToday && 'ring-2 ring-primary ring-offset-1',
-                  goalMet && 'bg-green-100 dark:bg-green-900/50',
+                  goalMet && 'bg-green-100',
                   !isSameMonth(day, currentMonth) && 'opacity-40'
                 )}
               >
@@ -219,7 +219,7 @@ export function CalendarView({
                   className={cn(
                     'font-medium text-sm',
                     isToday && 'text-primary font-bold',
-                    goalMet && !isToday && 'text-green-700 dark:text-green-300',
+                    goalMet && !isToday && 'text-green-700',
                     !hasEntry && !isToday && 'text-muted-foreground'
                   )}
                 >
@@ -228,7 +228,7 @@ export function CalendarView({
                 {hasEntry && (
                   <span className={cn(
                     'text-[10px] font-medium mt-0.5',
-                    goalMet ? 'text-green-700 dark:text-green-300' : 'text-primary'
+                    goalMet ? 'text-green-700' : 'text-primary'
                   )}>
                     {protein}g
                   </span>
@@ -248,7 +248,7 @@ export function CalendarView({
           <span>Today</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-md bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-700" />
+          <div className="w-3 h-3 rounded-md bg-green-100 border border-green-300" />
           <span>Goal met</span>
         </div>
         {mpsTrackingEnabled && (

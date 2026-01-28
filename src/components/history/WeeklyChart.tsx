@@ -9,6 +9,7 @@ import {
   Cell,
   ReferenceLine,
   ComposedChart,
+  Line,
 } from 'recharts';
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Flame, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -232,6 +233,10 @@ export function WeeklyChart({
   const maxProtein = Math.max(...chartData.map(d => d.totalProtein), goal);
   const yAxisMax = Math.ceil(maxProtein * 1.15 / 10) * 10;
 
+  // Calculate max for calories Y axis
+  const maxCalories = Math.max(...chartData.map(d => d.totalCalories), calorieGoal);
+  const calorieYAxisMax = Math.ceil(maxCalories * 1.15 / 100) * 100;
+
   return (
     <div className="space-y-4">
       {/* Week Navigation */}
@@ -293,7 +298,7 @@ export function WeeklyChart({
       <div className="bg-card rounded-2xl p-4 shadow-sm">
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 20, right: calorieTrackingEnabled ? 35 : 10, left: 0, bottom: 0 }}>
               <defs>
                 {/* Yellow/amber/orange gradient palette */}
                 <linearGradient id={MEAL_GRADIENT_IDS.breakfast} x1="0" y1="0" x2="0" y2="1">
@@ -314,14 +319,26 @@ export function WeeklyChart({
                 </linearGradient>
               </defs>
 
-              {/* Goal reference lines - behind bars */}
+              {/* Protein goal line */}
               <ReferenceLine
                 y={goal}
-                stroke="hsl(var(--muted-foreground))"
-                strokeWidth={1}
+                yAxisId="protein"
+                stroke="#9ca3af"
+                strokeWidth={1.5}
                 strokeDasharray="4 4"
-                strokeOpacity={0.5}
               />
+
+              {/* Calorie goal line */}
+              {calorieTrackingEnabled && (
+                <ReferenceLine
+                  y={calorieGoal}
+                  yAxisId="calories"
+                  stroke="#f97316"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.6}
+                />
+              )}
 
               <XAxis
                 dataKey="day"
@@ -330,12 +347,25 @@ export function WeeklyChart({
                 tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
               />
               <YAxis
+                yAxisId="protein"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fontSize: 11, fill: '#6b7280' }}
                 width={32}
                 domain={[0, yAxisMax]}
               />
+              {calorieTrackingEnabled && (
+                <YAxis
+                  yAxisId="calories"
+                  orientation="right"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: '#f97316' }}
+                  width={32}
+                  domain={[0, calorieYAxisMax]}
+                  tickFormatter={(value) => value >= 1000 ? `${value/1000}k` : value}
+                />
+              )}
               <Tooltip
                 content={<CustomTooltip />}
                 cursor={false}
@@ -345,24 +375,28 @@ export function WeeklyChart({
               <Bar
                 dataKey="breakfast"
                 stackId="protein"
+                yAxisId="protein"
                 fill={`url(#${MEAL_GRADIENT_IDS.breakfast})`}
                 radius={[0, 0, 0, 0]}
               />
               <Bar
                 dataKey="lunch"
                 stackId="protein"
+                yAxisId="protein"
                 fill={`url(#${MEAL_GRADIENT_IDS.lunch})`}
                 radius={[0, 0, 0, 0]}
               />
               <Bar
                 dataKey="snack"
                 stackId="protein"
+                yAxisId="protein"
                 fill={`url(#${MEAL_GRADIENT_IDS.snack})`}
                 radius={[0, 0, 0, 0]}
               />
               <Bar
                 dataKey="dinner"
                 stackId="protein"
+                yAxisId="protein"
                 fill={`url(#${MEAL_GRADIENT_IDS.dinner})`}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={36}
@@ -376,13 +410,26 @@ export function WeeklyChart({
                 ))}
               </Bar>
 
+              {/* Calorie line */}
+              {calorieTrackingEnabled && (
+                <Line
+                  type="monotone"
+                  dataKey="totalCalories"
+                  yAxisId="calories"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  dot={{ fill: '#f97316', r: 3, strokeWidth: 0 }}
+                  activeDot={{ r: 5, strokeWidth: 0 }}
+                  connectNulls={false}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
 
         {/* MPS dots below chart - aligned with bars */}
         {mpsTrackingEnabled && (
-          <div className="flex mt-1" style={{ paddingLeft: 32, paddingRight: 10 }}>
+          <div className="flex mt-1" style={{ paddingLeft: 32, paddingRight: calorieTrackingEnabled ? 35 : 10 }}>
             {chartData.map((day, index) => (
               <div key={index} className="flex-1 flex gap-0.5 justify-center">
                 {day.mpsHits > 0 && Array.from({ length: Math.min(day.mpsHits, 5) }).map((_, i) => (
@@ -411,6 +458,12 @@ export function WeeklyChart({
             <div className="w-2.5 h-2.5 rounded bg-gradient-to-b from-amber-500 to-orange-600" />
             <span>Dinner</span>
           </div>
+          {calorieTrackingEnabled && (
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-0.5 rounded bg-orange-500" />
+              <span>kcal</span>
+            </div>
+          )}
           {mpsTrackingEnabled && (
             <div className="flex items-center gap-1">
               <div className="w-1 h-1 rounded-full bg-purple-500" />
