@@ -11,7 +11,7 @@ import type { FoodEntry } from '@/types';
 type TabValue = 'list' | 'week' | 'month';
 
 export function History() {
-  const [activeTab, setActiveTab] = useState<TabValue>('list');
+  const [activeTab, setActiveTab] = useState<TabValue>('week');
   const entries = useRecentEntries(90);
   const deleteEntry = useDeleteEntry();
   const dailyGoals = useDailyGoals();
@@ -74,7 +74,13 @@ export function History() {
         )}
 
         {activeTab === 'week' && (
-          <WeeklyChart entries={entries} goal={settings.defaultGoal} />
+          <WeeklyChart
+            entries={entries}
+            goal={settings.defaultGoal}
+            calorieGoal={settings.calorieGoal}
+            calorieTrackingEnabled={settings.calorieTrackingEnabled}
+            mpsTrackingEnabled={settings.mpsTrackingEnabled}
+          />
         )}
 
         {activeTab === 'month' && (
@@ -82,6 +88,7 @@ export function History() {
             entries={entries}
             goals={dailyGoals}
             defaultGoal={settings.defaultGoal}
+            mpsTrackingEnabled={settings.mpsTrackingEnabled}
           />
         )}
       </div>

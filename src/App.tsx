@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { Chat } from '@/pages/Chat';
-import { Advisor } from '@/pages/Advisor';
 import { UnifiedChat } from '@/pages/UnifiedChat';
 import { History } from '@/pages/History';
 import { Settings } from '@/pages/Settings';

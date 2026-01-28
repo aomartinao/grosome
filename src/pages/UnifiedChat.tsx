@@ -21,7 +21,7 @@ import { useProgressInsights } from '@/hooks/useProgressInsights';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
-import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntryBySyncId } from '@/db';
+import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits } from '@/lib/utils';
 import { refineAnalysis } from '@/services/ai/client';

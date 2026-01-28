@@ -10,36 +10,112 @@ import {
   subMonths,
   getDay,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Dumbbell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { calculateMPSHits } from '@/lib/utils';
 import type { FoodEntry } from '@/types';
 
 interface CalendarViewProps {
   entries: FoodEntry[];
   goals: Map<string, number>;
   defaultGoal: number;
+  mpsTrackingEnabled?: boolean;
 }
 
-export function CalendarView({ entries, goals, defaultGoal }: CalendarViewProps) {
+// Detect system/browser week start preference
+// Returns 0 for Sunday, 1 for Monday
+function getSystemWeekStartDay(): 0 | 1 {
+  try {
+    // Use Intl.Locale to detect week info if available (modern browsers)
+    const locale = new Intl.Locale(navigator.language);
+    // @ts-ignore - weekInfo is a newer API
+    if (locale.weekInfo?.firstDay !== undefined) {
+      // weekInfo.firstDay: 1 = Monday, 7 = Sunday
+      // @ts-ignore
+      return locale.weekInfo.firstDay === 7 ? 0 : 1;
+    }
+  } catch {
+    // Fallback
+  }
+
+  // Fallback: check common locales
+  const lang = navigator.language.toLowerCase();
+  // Countries that typically start week on Sunday: US, Canada, Japan, etc.
+  const sundayStartLocales = ['en-us', 'en-ca', 'ja', 'ko', 'zh', 'he', 'ar'];
+  const isSundayStart = sundayStartLocales.some(l => lang.startsWith(l.split('-')[0]) && lang.includes(l.split('-')[1] || ''));
+
+  // Most of the world starts on Monday
+  return isSundayStart ? 0 : 1;
+}
+
+export function CalendarView({
+  entries,
+  goals,
+  defaultGoal,
+  mpsTrackingEnabled = true,
+}: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const weekStartsOn = getSystemWeekStartDay();
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  const dailyTotals = useMemo(() => {
-    const totals = new Map<string, number>();
+  // Calculate daily totals and MPS hits
+  const dailyData = useMemo(() => {
+    const data = new Map<string, { protein: number; calories: number; mpsHits: number }>();
+
+    // Group entries by date
+    const entriesByDate = new Map<string, FoodEntry[]>();
     for (const entry of entries) {
-      const current = totals.get(entry.date) || 0;
-      totals.set(entry.date, current + entry.protein);
+      const existing = entriesByDate.get(entry.date) || [];
+      existing.push(entry);
+      entriesByDate.set(entry.date, existing);
     }
-    return totals;
+
+    // Calculate totals for each date
+    for (const [date, dayEntries] of entriesByDate) {
+      const protein = dayEntries.reduce((sum, e) => sum + e.protein, 0);
+      const calories = dayEntries.reduce((sum, e) => sum + (e.calories || 0), 0);
+      const mpsHits = calculateMPSHits(dayEntries).length;
+      data.set(date, { protein, calories, mpsHits });
+    }
+
+    return data;
   }, [entries]);
 
-  const startDay = getDay(monthStart);
-  const paddingDays = Array(startDay).fill(null);
-  const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  // Calculate padding days based on week start preference
+  const firstDayOfMonth = getDay(monthStart); // 0 = Sunday, 1 = Monday, ...
+  const paddingDays = Array((firstDayOfMonth - weekStartsOn + 7) % 7).fill(null);
+
+  // Weekday headers based on week start preference
+  const weekDaysFromSunday = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const weekDays = weekStartsOn === 1
+    ? [...weekDaysFromSunday.slice(1), weekDaysFromSunday[0]] // Mon-Sun
+    : weekDaysFromSunday; // Sun-Sat
+
+  // Calculate monthly stats
+  const monthStats = useMemo(() => {
+    let totalProtein = 0;
+    let goalMetDays = 0;
+    let totalMpsHits = 0;
+    let daysWithEntries = 0;
+
+    for (const day of days) {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const data = dailyData.get(dateStr);
+      if (data && data.protein > 0) {
+        totalProtein += data.protein;
+        totalMpsHits += data.mpsHits;
+        daysWithEntries++;
+        const goal = goals.get(dateStr) || defaultGoal;
+        if (data.protein >= goal) goalMetDays++;
+      }
+    }
+
+    return { totalProtein, goalMetDays, totalMpsHits, daysWithEntries };
+  }, [days, dailyData, goals, defaultGoal]);
 
   return (
     <div className="space-y-4">
@@ -64,6 +140,29 @@ export function CalendarView({ entries, goals, defaultGoal }: CalendarViewProps)
         </Button>
       </div>
 
+      {/* Monthly Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-card rounded-2xl p-3 text-center shadow-sm">
+          <span className="text-xl font-bold text-primary">
+            {monthStats.daysWithEntries > 0 ? Math.round(monthStats.totalProtein / monthStats.daysWithEntries) : 0}g
+          </span>
+          <p className="text-xs text-muted-foreground mt-0.5">Daily avg</p>
+        </div>
+        <div className="bg-card rounded-2xl p-3 text-center shadow-sm">
+          <span className="text-xl font-bold text-green-600">{monthStats.goalMetDays}</span>
+          <p className="text-xs text-muted-foreground mt-0.5">Goals hit</p>
+        </div>
+        {mpsTrackingEnabled && (
+          <div className="bg-card rounded-2xl p-3 text-center shadow-sm">
+            <div className="flex items-center justify-center gap-1">
+              <Dumbbell className="h-4 w-4 text-purple-500" />
+              <span className="text-xl font-bold text-purple-600">{monthStats.totalMpsHits}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">MPS hits</p>
+          </div>
+        )}
+      </div>
+
       {/* Calendar */}
       <div className="bg-card rounded-2xl p-4 shadow-sm">
         {/* Weekday headers */}
@@ -85,7 +184,9 @@ export function CalendarView({ entries, goals, defaultGoal }: CalendarViewProps)
           ))}
           {days.map((day) => {
             const dateStr = format(day, 'yyyy-MM-dd');
-            const protein = dailyTotals.get(dateStr) || 0;
+            const data = dailyData.get(dateStr);
+            const protein = data?.protein || 0;
+            const mpsHits = data?.mpsHits || 0;
             const goal = goals.get(dateStr) || defaultGoal;
             const goalMet = protein >= goal;
             const hasEntry = protein > 0;
@@ -96,7 +197,7 @@ export function CalendarView({ entries, goals, defaultGoal }: CalendarViewProps)
                 key={dateStr}
                 className={cn(
                   'aspect-square flex flex-col items-center justify-center rounded-xl text-sm relative transition-colors',
-                  isToday && 'bg-primary/10',
+                  isToday && 'ring-2 ring-primary ring-offset-1',
                   goalMet && 'bg-green-50',
                   !isSameMonth(day, currentMonth) && 'opacity-40'
                 )}
@@ -119,6 +220,12 @@ export function CalendarView({ entries, goals, defaultGoal }: CalendarViewProps)
                     {protein}g
                   </span>
                 )}
+                {/* MPS indicator */}
+                {mpsTrackingEnabled && mpsHits > 0 && (
+                  <div className="absolute top-0.5 right-0.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title={`${mpsHits} MPS hit${mpsHits > 1 ? 's' : ''}`} />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -128,13 +235,19 @@ export function CalendarView({ entries, goals, defaultGoal }: CalendarViewProps)
       {/* Legend */}
       <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-md bg-primary/10" />
+          <div className="w-3 h-3 rounded-md ring-2 ring-primary ring-offset-1" />
           <span>Today</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-md bg-green-50 border border-green-200" />
           <span>Goal met</span>
         </div>
+        {mpsTrackingEnabled && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+            <span>MPS hit</span>
+          </div>
+        )}
       </div>
     </div>
   );
