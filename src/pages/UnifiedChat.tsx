@@ -206,13 +206,25 @@ export function UnifiedChat() {
     }
   }, [insightsReady, initialized, getContext, addMessage, messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // Track if initial scroll has happened
+  const hasScrolledRef = useRef(false);
 
+  const scrollToBottom = useCallback((instant = false) => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: instant ? 'instant' : 'smooth'
+    });
+  }, []);
+
+  // Scroll on messages change - instant on first load, smooth after
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, pendingFood]);
+    if (!messagesLoaded) return;
+
+    const isInitialScroll = !hasScrolledRef.current;
+    if (isInitialScroll) {
+      hasScrolledRef.current = true;
+    }
+    scrollToBottom(isInitialScroll);
+  }, [messages, pendingFood, messagesLoaded, scrollToBottom]);
 
   // Handle sending text
   const handleSendText = async (text: string) => {
