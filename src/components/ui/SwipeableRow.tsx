@@ -290,10 +290,10 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button type="button" variant="outline" onClick={() => setShowDeleteDialog(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
+            <Button type="button" variant="destructive" onClick={handleConfirmDelete}>
               Delete
             </Button>
           </DialogFooter>

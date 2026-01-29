@@ -70,6 +70,7 @@ export function FoodCard({
         <div className="flex gap-2 mt-4">
           {onCancel && (
             <Button
+              type="button"
               size="sm"
               variant="ghost"
               className="h-10 px-3 rounded-xl text-muted-foreground"
@@ -79,6 +80,7 @@ export function FoodCard({
             </Button>
           )}
           <Button
+            type="button"
             size="sm"
             variant="outline"
             className="flex-1 h-10 rounded-xl"
@@ -88,6 +90,7 @@ export function FoodCard({
             Edit
           </Button>
           <Button
+            type="button"
             size="sm"
             className="flex-1 h-10 rounded-xl"
             onClick={onConfirm}

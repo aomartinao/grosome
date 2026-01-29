@@ -266,10 +266,10 @@ export function Dashboard() {
             )}
           </div>
           <DialogFooter className="flex-row justify-end gap-2">
-            <Button variant="outline" onClick={() => { setEditingEntry(null); setEditRefinement(''); }}>
+            <Button type="button" variant="outline" onClick={() => { setEditingEntry(null); setEditRefinement(''); }}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit}>Save</Button>
+            <Button type="button" onClick={handleSaveEdit}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

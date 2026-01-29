@@ -771,10 +771,10 @@ export function UnifiedChat() {
             )}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setEditingEntry(null); setEditRefinement(''); }}>
+            <Button type="button" variant="outline" onClick={() => { setEditingEntry(null); setEditRefinement(''); }}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit}>Save Changes</Button>
+            <Button type="button" onClick={handleSaveEdit}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
