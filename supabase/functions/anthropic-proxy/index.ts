@@ -66,11 +66,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get the API key from vault using service client
+    // Get the API key using service client (via RPC function)
     const { data: keyData, error: keyError } = await serviceClient.rpc(
       "get_admin_api_key_for_user",
       { target_user_id: user.id }
     );
+
+    console.log("Key lookup for user:", user.id, "Result:", keyData ? "found" : "not found", "Error:", keyError);
 
     if (keyError || !keyData) {
       return new Response(

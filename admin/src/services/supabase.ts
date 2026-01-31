@@ -42,10 +42,7 @@ export interface ApiUsageRecord {
 
 // Check if user is admin
 export async function isAdmin(user: User): Promise<boolean> {
-  // First check if user email matches admin email
-  if (user.email !== ADMIN_EMAIL) {
-    return false;
-  }
+  console.log('isAdmin check for user:', user.id, user.email);
 
   // Check if user is in admin_users table
   const { data, error } = await supabase
@@ -54,24 +51,14 @@ export async function isAdmin(user: User): Promise<boolean> {
     .eq('user_id', user.id)
     .single();
 
+  console.log('admin_users query result:', { data, error });
+
   if (error && error.code !== 'PGRST116') {
     // PGRST116 = no rows found
     console.error('Error checking admin status:', error);
   }
 
-  // If not in table but email matches, auto-promote
-  if (!data && user.email === ADMIN_EMAIL) {
-    const { error: insertError } = await supabase
-      .from('admin_users')
-      .insert({ user_id: user.id });
-
-    if (insertError) {
-      console.error('Error auto-promoting admin:', insertError);
-      return false;
-    }
-    return true;
-  }
-
+  console.log('isAdmin returning:', !!data);
   return !!data;
 }
 
