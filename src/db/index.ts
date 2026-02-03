@@ -57,13 +57,51 @@ db.version(4).stores({
   chatMessages: '++id, syncId, timestamp',
 });
 
+// Version 5: Added syncStatus field for tracking per-entry sync state
+db.version(5).stores({
+  foodEntries: '++id, date, source, createdAt, syncStatus',
+  userSettings: '++id',
+  dailyGoals: '++id, date',
+  syncMeta: '++id, key',
+  chatMessages: '++id, syncId, timestamp',
+}).upgrade(tx => {
+  // Migrate existing entries - assume they are synced if they have a syncId
+  return tx.table('foodEntries').toCollection().modify(entry => {
+    if (!entry.syncStatus) {
+      // If entry has syncId and was previously synced, mark as synced
+      // Otherwise mark as pending to be safe
+      entry.syncStatus = entry.syncId ? 'synced' : 'pending';
+    }
+  });
+});
+
 export { db };
+
+/**
+ * Normalize dates in a food entry - IndexedDB stores Date objects as strings,
+ * so we need to convert them back when reading.
+ */
+function normalizeFoodEntryDates(entry: FoodEntry): FoodEntry {
+  return {
+    ...entry,
+    createdAt: entry.createdAt instanceof Date ? entry.createdAt : new Date(entry.createdAt),
+    updatedAt: entry.updatedAt
+      ? (entry.updatedAt instanceof Date ? entry.updatedAt : new Date(entry.updatedAt))
+      : undefined,
+    deletedAt: entry.deletedAt
+      ? (entry.deletedAt instanceof Date ? entry.deletedAt : new Date(entry.deletedAt))
+      : undefined,
+    consumedAt: entry.consumedAt
+      ? (entry.consumedAt instanceof Date ? entry.consumedAt : new Date(entry.consumedAt))
+      : undefined,
+  };
+}
 
 // Helper functions
 export async function getEntriesForDate(date: string): Promise<FoodEntry[]> {
   const entries = await db.foodEntries.where('date').equals(date).toArray();
-  // Filter out soft-deleted entries
-  return entries.filter(e => !e.deletedAt);
+  // Filter out soft-deleted entries and normalize dates
+  return entries.filter(e => !e.deletedAt).map(normalizeFoodEntryDates);
 }
 
 export async function getEntriesForDateRange(startDate: string, endDate: string): Promise<FoodEntry[]> {
@@ -71,17 +109,18 @@ export async function getEntriesForDateRange(startDate: string, endDate: string)
     .where('date')
     .between(startDate, endDate, true, true)
     .toArray();
-  // Filter out soft-deleted entries
-  return entries.filter(e => !e.deletedAt);
+  // Filter out soft-deleted entries and normalize dates
+  return entries.filter(e => !e.deletedAt).map(normalizeFoodEntryDates);
 }
 
 export async function addFoodEntry(entry: Omit<FoodEntry, 'id'>): Promise<number> {
-  // Ensure sync fields are set
+  // Ensure sync fields are set - new entries are always pending until synced
   const entryWithSync = {
     ...entry,
     syncId: entry.syncId || crypto.randomUUID(),
     updatedAt: entry.updatedAt || new Date(),
     createdAt: entry.createdAt || new Date(),
+    syncStatus: entry.syncStatus || 'pending',  // New entries start as pending
   };
   const id = await db.foodEntries.add(entryWithSync as FoodEntry);
   return id as number;
@@ -113,7 +152,13 @@ export async function hardDeleteFoodEntry(id: number): Promise<void> {
 }
 
 export async function updateFoodEntry(id: number, updates: Partial<FoodEntry>): Promise<number> {
-  return db.foodEntries.update(id, updates);
+  // Mark entry as pending when updated (needs to sync again)
+  const updatesWithSync = {
+    ...updates,
+    updatedAt: new Date(),
+    syncStatus: 'pending' as const,
+  };
+  return db.foodEntries.update(id, updatesWithSync);
 }
 
 export async function getUserSettings(): Promise<UserSettings | undefined> {
@@ -201,20 +246,23 @@ export async function setSyncMeta(key: string, value: string): Promise<void> {
 
 // Get all entries (including deleted) for sync
 export async function getAllEntriesForSync(): Promise<FoodEntry[]> {
-  return db.foodEntries.toArray();
+  const entries = await db.foodEntries.toArray();
+  return entries.map(normalizeFoodEntryDates);
 }
 
 // Get entries modified after a timestamp
 export async function getEntriesModifiedAfter(timestamp: Date): Promise<FoodEntry[]> {
   // Can't use index query with potentially undefined updatedAt, filter manually
   const entries = await db.foodEntries.toArray();
-  return entries.filter(e => e.updatedAt && e.updatedAt > timestamp);
+  return entries
+    .map(normalizeFoodEntryDates)
+    .filter(e => e.updatedAt && e.updatedAt > timestamp);
 }
 
 // Get active (non-deleted) entries
 export async function getActiveEntries(): Promise<FoodEntry[]> {
   const entries = await db.foodEntries.toArray();
-  return entries.filter(e => !e.deletedAt);
+  return entries.map(normalizeFoodEntryDates).filter(e => !e.deletedAt);
 }
 
 // Upsert entry by syncId (for sync)
@@ -237,7 +285,8 @@ export async function upsertEntryBySyncId(entry: FoodEntry): Promise<void> {
 export async function getEntryBySyncId(syncId: string): Promise<FoodEntry | undefined> {
   if (!syncId) return undefined;
   const entries = await db.foodEntries.toArray();
-  return entries.find(e => e.syncId === syncId);
+  const entry = entries.find(e => e.syncId === syncId);
+  return entry ? normalizeFoodEntryDates(entry) : undefined;
 }
 
 // Helper to serialize dates for storage
@@ -420,6 +469,68 @@ export async function getFrequentMeals(limit: number = 5, daysBack: number = 30)
     .slice(0, limit);
 
   return sorted;
+}
+
+// Sync status tracking helpers
+
+/**
+ * Get count of entries pending sync (not yet uploaded to cloud)
+ */
+export async function getPendingSyncCount(): Promise<number> {
+  const entries = await db.foodEntries.where('syncStatus').equals('pending').toArray();
+  // Only count non-deleted entries
+  return entries.filter(e => !e.deletedAt).length;
+}
+
+/**
+ * Get all entries that need to be synced (pending or failed)
+ */
+export async function getEntriesNeedingSync(): Promise<FoodEntry[]> {
+  const pending = await db.foodEntries.where('syncStatus').equals('pending').toArray();
+  const failed = await db.foodEntries.where('syncStatus').equals('failed').toArray();
+  return [...pending, ...failed].map(normalizeFoodEntryDates);
+}
+
+/**
+ * Mark an entry as successfully synced
+ */
+export async function markEntrySynced(syncId: string): Promise<void> {
+  const entry = await getEntryBySyncId(syncId);
+  if (entry?.id) {
+    await db.foodEntries.update(entry.id, { syncStatus: 'synced' });
+  }
+}
+
+/**
+ * Mark an entry as failed to sync
+ */
+export async function markEntryFailed(syncId: string): Promise<void> {
+  const entry = await getEntryBySyncId(syncId);
+  if (entry?.id) {
+    await db.foodEntries.update(entry.id, { syncStatus: 'failed' });
+  }
+}
+
+/**
+ * Mark multiple entries as synced by their syncIds
+ */
+export async function markEntriesSynced(syncIds: string[]): Promise<void> {
+  for (const syncId of syncIds) {
+    await markEntrySynced(syncId);
+  }
+}
+
+/**
+ * Reset all failed entries to pending (for retry)
+ */
+export async function resetFailedEntriesToPending(): Promise<number> {
+  const failed = await db.foodEntries.where('syncStatus').equals('failed').toArray();
+  for (const entry of failed) {
+    if (entry.id) {
+      await db.foodEntries.update(entry.id, { syncStatus: 'pending' });
+    }
+  }
+  return failed.length;
 }
 
 export async function cleanupOldChatMessages(olderThanDays: number = 7): Promise<number> {
