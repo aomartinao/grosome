@@ -409,6 +409,8 @@ export function DailyProgress({
         </button>
       </div>
 
+      {/* Spacer for FAB overlap on Today view */}
+      {isToday && <div className="h-20 shrink-0" />}
     </div>
   );
 }
