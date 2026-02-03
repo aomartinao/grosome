@@ -50,6 +50,7 @@ export function useDeleteEntry() {
     // Show undo toast
     toast({
       description: foodName ? `"${foodName}" deleted` : 'Entry deleted',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       action: React.createElement(ToastAction, {
         altText: 'Undo',
         onClick: async () => {
@@ -57,7 +58,7 @@ export function useDeleteEntry() {
           await restoreFoodEntry(id);
           triggerSync();
         },
-      }, 'Undo'),
+      }, 'Undo') as any,
       duration: 5000,
     });
 
