@@ -356,6 +356,7 @@ export function DailyProgress({
                       <img
                         src={entry.imageData}
                         alt={entry.foodName}
+                        loading="lazy"
                         className="w-10 h-10 rounded-lg object-cover"
                       />
                     ) : (
