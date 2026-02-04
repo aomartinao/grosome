@@ -373,7 +373,7 @@ ${restrictionsList ? `DIETARY: ${restrictionsList}` : ''}
 export async function processUnifiedMessage(
   apiKey: string | null,
   userMessage: string,
-  imageData: string | null,
+  images: string[],
   context: UnifiedContext,
   conversationHistory: UnifiedMessage[] = [],
   useProxy = false
@@ -387,27 +387,33 @@ export async function processUnifiedMessage(
     }));
 
   // Add current message
-  if (imageData) {
-    const base64Data = imageData.includes('base64,')
-      ? imageData.split('base64,')[1]
-      : imageData;
+  if (images.length > 0) {
+    // Build content array with all images + text
+    const contentParts: ProxyMessageContent[] = [];
+
+    for (const imageData of images) {
+      const base64Data = imageData.includes('base64,')
+        ? imageData.split('base64,')[1]
+        : imageData;
+
+      contentParts.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: 'image/jpeg',
+          data: base64Data,
+        },
+      });
+    }
+
+    contentParts.push({
+      type: 'text',
+      text: userMessage || (images.length > 1 ? 'What are these foods?' : 'What is this?'),
+    });
 
     messages.push({
       role: 'user',
-      content: [
-        {
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: 'image/jpeg',
-            data: base64Data,
-          },
-        },
-        {
-          type: 'text',
-          text: userMessage || 'What is this?',
-        },
-      ] as ProxyMessageContent[],
+      content: contentParts,
     });
   } else {
     messages.push({

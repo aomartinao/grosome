@@ -29,6 +29,10 @@ export function MessageBubble({
   const isUser = message.type === 'user';
   const isConfirmed = !!message.foodEntrySyncId;
 
+  // Get images array (support both legacy imageData and new images array)
+  const messageImages = message.images || (message.imageData ? [message.imageData] : []);
+  const hasImages = messageImages.length > 0;
+
   // Show quick replies only for latest message with advisor replies
   const showQuickReplies = isLatestMessage &&
     message.advisorQuickReplies &&
@@ -45,7 +49,7 @@ export function MessageBubble({
         className={cn(
           'max-w-[85%] min-w-0',
           isUser
-            ? message.imageData
+            ? hasImages
               ? 'rounded-2xl rounded-br-md overflow-hidden bg-primary text-primary-foreground'
               : 'rounded-2xl rounded-br-md px-4 py-2 bg-primary text-primary-foreground'
             : 'text-foreground/80 text-sm py-1'
@@ -55,16 +59,31 @@ export function MessageBubble({
           <TypingIndicator />
         ) : (
           <>
-            {message.imageData && (
-              <img
-                src={message.imageData}
-                alt="Food"
-                loading="lazy"
-                className="max-w-full block"
-              />
+            {hasImages && (
+              <div className={cn(
+                'flex gap-1',
+                messageImages.length > 1 ? 'flex-wrap' : ''
+              )}>
+                {messageImages.map((img, index) => (
+                  <img
+                    key={index}
+                    src={img}
+                    alt={`Food ${index + 1}`}
+                    loading="lazy"
+                    className={cn(
+                      'block object-cover',
+                      messageImages.length === 1
+                        ? 'max-w-full'
+                        : messageImages.length === 2
+                        ? 'w-[calc(50%-2px)] aspect-square'
+                        : 'w-[calc(33.333%-2.67px)] aspect-square'
+                    )}
+                  />
+                ))}
+              </div>
             )}
             {message.content && (
-              <div className={cn('text-sm min-w-0', message.imageData && isUser && 'px-4 py-2')}>
+              <div className={cn('text-sm min-w-0', hasImages && isUser && 'px-4 py-2')}>
                 <MarkdownText>{message.content}</MarkdownText>
               </div>
             )}
