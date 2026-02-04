@@ -54,7 +54,8 @@ export interface ChatMessage {
   syncId: string;               // UUID for sync - unique across all devices
   type: 'user' | 'assistant' | 'system';
   content: string;
-  imageData?: string;
+  imageData?: string;           // Legacy: single image (kept for backward compat)
+  images?: string[];            // Multiple images support
   foodEntry?: FoodEntry;
   foodEntrySyncId?: string;     // Link to confirmed food entry
   isLoading?: boolean;

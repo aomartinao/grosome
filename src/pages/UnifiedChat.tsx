@@ -236,8 +236,8 @@ export function UnifiedChat() {
     scrollToBottom(isInitialScroll);
   }, [messages, pendingFood, messagesLoaded, scrollToBottom]);
 
-  // Handle sending text
-  const handleSendText = async (text: string) => {
+  // Handle sending message (text and/or images)
+  const handleSend = async (text: string, images: string[]) => {
     setShowQuickReplies([]);
     setPendingFood(null);
 
@@ -246,27 +246,11 @@ export function UnifiedChat() {
       syncId: userSyncId,
       type: 'user',
       content: text,
+      images: images.length > 0 ? images : undefined,
       timestamp: new Date(),
     });
 
-    await processInput(text, null);
-  };
-
-  // Handle sending image
-  const handleSendImage = async (imageData: string) => {
-    setShowQuickReplies([]);
-    setPendingFood(null);
-
-    const userSyncId = crypto.randomUUID();
-    addMessage({
-      syncId: userSyncId,
-      type: 'user',
-      content: '',
-      imageData,
-      timestamp: new Date(),
-    });
-
-    await processInput('', imageData);
+    await processInput(text, images);
   };
 
   // Handle pending image from home screen (quick capture via long-press)
@@ -278,11 +262,11 @@ export function UnifiedChat() {
     setPendingImageFromHome(null, null);
 
     // Send the image
-    handleSendImage(imageData);
-  }, [insightsReady, initialized, pendingImageFromHome, setPendingImageFromHome, handleSendImage]);
+    handleSend('', [imageData]);
+  }, [insightsReady, initialized, pendingImageFromHome, setPendingImageFromHome, handleSend]);
 
   // Process input through unified AI
-  const processInput = async (text: string, imageData: string | null) => {
+  const processInput = async (text: string, images: string[]) => {
     const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
     const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
 
@@ -312,7 +296,7 @@ export function UnifiedChat() {
       const result = await processUnifiedMessage(
         settings.claudeApiKey || null,
         text,
-        imageData,
+        images,
         context,
         chatHistory,
         useProxy
@@ -321,7 +305,7 @@ export function UnifiedChat() {
       // Update chat history
       setChatHistory(prev => [
         ...prev,
-        { role: 'user', content: text || '[image]', imageData: imageData || undefined },
+        { role: 'user', content: text || '[image]', imageData: images[0] || undefined },
         { role: 'assistant', content: result.message },
       ]);
 
@@ -363,7 +347,7 @@ export function UnifiedChat() {
         setPendingFood({
           messageSyncId: loadingSyncId,
           analysis: result.foodAnalysis,
-          imageData: imageData || undefined,
+          imageData: images[0] || undefined,
         });
 
         if (result.quickReplies) {
@@ -381,7 +365,7 @@ export function UnifiedChat() {
         setPendingFood({
           messageSyncId: loadingSyncId,
           analysis: result.foodAnalysis,
-          imageData: imageData || undefined,
+          imageData: images[0] || undefined,
         });
 
         if (result.quickReplies) {
@@ -600,7 +584,7 @@ export function UnifiedChat() {
   };
 
   const handleQuickReply = (reply: string) => {
-    handleSendText(reply);
+    handleSend(reply, []);
   };
 
   // Handle quick log shortcut - directly create pending food without AI
@@ -807,8 +791,7 @@ export function UnifiedChat() {
 
       {/* Input */}
       <ChatInput
-        onSendText={handleSendText}
-        onSendImage={handleSendImage}
+        onSend={handleSend}
         disabled={isProcessing}
       />
 

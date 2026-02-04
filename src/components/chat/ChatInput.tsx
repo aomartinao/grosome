@@ -1,33 +1,36 @@
 import { useState, useRef } from 'react';
-import { Camera, Send, Image as ImageIcon } from 'lucide-react';
+import { Camera, Send, Image as ImageIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { compressImage } from '@/lib/utils';
 
 interface ChatInputProps {
-  onSendText: (text: string) => void;
-  onSendImage: (imageData: string) => void;
+  onSend: (text: string, images: string[]) => void;
   disabled?: boolean;
 }
 
-export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps) {
+const MAX_IMAGES = 4;
+
+export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [text, setText] = useState('');
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (text.trim() && !disabled) {
-      onSendText(text.trim());
+    if ((text.trim() || pendingImages.length > 0) && !disabled) {
+      onSend(text.trim(), pendingImages);
       setText('');
+      setPendingImages([]);
     }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && !disabled) {
+    if (file && !disabled && pendingImages.length < MAX_IMAGES) {
       try {
         const compressed = await compressImage(file);
-        onSendImage(compressed);
+        setPendingImages(prev => [...prev, compressed]);
       } catch (error) {
         console.error('Error processing image:', error);
       }
@@ -35,8 +38,38 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
     e.target.value = '';
   };
 
+  const removeImage = (index: number) => {
+    setPendingImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const canAddMore = pendingImages.length < MAX_IMAGES;
+  const canSend = (text.trim() || pendingImages.length > 0) && !disabled;
+
   return (
     <div className="border-t bg-card p-3 safe-area-inset-bottom overflow-hidden">
+      {/* Pending images thumbnails */}
+      {pendingImages.length > 0 && (
+        <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+          {pendingImages.map((img, index) => (
+            <div key={index} className="relative flex-shrink-0">
+              <img
+                src={img}
+                alt={`Pending ${index + 1}`}
+                className="w-16 h-16 rounded-lg object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => removeImage(index)}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-sm"
+                disabled={disabled}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex items-center gap-2 min-w-0">
         {/* Hidden file inputs */}
         <input
@@ -63,7 +96,7 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
             size="icon"
             className="h-10 w-10 rounded-full hover:bg-muted"
             onClick={() => cameraInputRef.current?.click()}
-            disabled={disabled}
+            disabled={disabled || !canAddMore}
           >
             <Camera className="h-5 w-5 text-muted-foreground" />
             <span className="sr-only">Take photo</span>
@@ -75,7 +108,7 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
             size="icon"
             className="h-10 w-10 rounded-full hover:bg-muted"
             onClick={() => fileInputRef.current?.click()}
-            disabled={disabled}
+            disabled={disabled || !canAddMore}
           >
             <ImageIcon className="h-5 w-5 text-muted-foreground" />
             <span className="sr-only">Upload image</span>
@@ -88,7 +121,7 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Describe your meal..."
+            placeholder={pendingImages.length > 0 ? "Add details (optional)..." : "Describe your meal..."}
             disabled={disabled}
             className="w-full h-10 px-4 rounded-full bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
           />
@@ -99,7 +132,7 @@ export function ChatInput({ onSendText, onSendImage, disabled }: ChatInputProps)
           type="submit"
           size="icon"
           className="h-10 w-10 rounded-full"
-          disabled={!text.trim() || disabled}
+          disabled={!canSend}
         >
           <Send className="h-5 w-5" />
           <span className="sr-only">Send</span>
