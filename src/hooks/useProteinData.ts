@@ -11,7 +11,7 @@ import {
   getDailyGoal,
 } from '@/db';
 import { toast } from '@/hooks/use-toast';
-import { ToastAction, type ToastActionElement } from '@/components/ui/toast';
+import { ToastAction } from '@/components/ui/toast';
 import { useStore } from '@/store/useStore';
 import { useAuthStore, triggerSync } from '@/store/useAuthStore';
 import { getToday, getDateRange, formatDate } from '@/lib/utils';
@@ -50,6 +50,7 @@ export function useDeleteEntry() {
     // Show undo toast
     toast({
       description: foodName ? `"${foodName}" deleted` : 'Entry deleted',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       action: React.createElement(ToastAction, {
         altText: 'Undo',
         onClick: async () => {
@@ -57,7 +58,7 @@ export function useDeleteEntry() {
           await restoreFoodEntry(id);
           triggerSync();
         },
-      }, 'Undo') as unknown as ToastActionElement,
+      }, 'Undo') as any,
       duration: 5000,
     });
 

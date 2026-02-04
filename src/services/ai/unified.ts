@@ -3,12 +3,39 @@ import type { DietaryPreferences } from '@/types';
 import type { ProgressInsights } from '@/hooks/useProgressInsights';
 import { sendProxyRequest, parseProxyResponse, type ProxyMessageContent } from './proxy';
 
+// Food categories for variety tracking
+export type FoodCategory = 'meat' | 'dairy' | 'seafood' | 'plant' | 'eggs' | 'other';
+
 export interface LastLoggedEntry {
   syncId: string;
   foodName: string;
   protein: number;
   calories?: number;
   loggedMinutesAgo: number;
+}
+
+// MPS (Muscle Protein Synthesis) analysis
+export interface MPSAnalysis {
+  hitsToday: number;
+  minutesSinceLastHit: number | null;
+  lastHitProtein: number | null;
+  nearMiss?: {
+    type: 'timing' | 'protein' | 'both';
+    actual: {
+      protein?: number;
+      minutesSinceLast?: number;
+    };
+  };
+}
+
+// Protein breakdown by category
+export interface CategoryBreakdown {
+  meat: number;
+  dairy: number;
+  seafood: number;
+  plant: number;
+  eggs: number;
+  other: number;
 }
 
 export interface UnifiedContext {
@@ -20,8 +47,15 @@ export interface UnifiedContext {
   preferences: DietaryPreferences;
   nickname?: string;
   insights: ProgressInsights;
-  recentMeals?: string[]; // Last few meals for context
-  lastLoggedEntry?: LastLoggedEntry; // Most recent entry for correction detection
+  recentMeals?: string[];
+  lastLoggedEntry?: LastLoggedEntry;
+
+  // NEW: Enhanced context for coaching
+  mpsAnalysis?: MPSAnalysis;
+  todayByCategory?: CategoryBreakdown;
+  preferencesSource?: 'settings' | 'conversation' | 'none';
+  unknownPreferences?: string[];
+  askedPreferenceThisSession?: boolean;
 }
 
 export interface UnifiedMessage {
@@ -30,191 +64,309 @@ export interface UnifiedMessage {
   imageData?: string;
 }
 
-export type MessageIntent = 'log_food' | 'correct_food' | 'analyze_menu' | 'question' | 'greeting' | 'other';
+export type MessageIntent =
+  | 'log_food'
+  | 'correct_food'
+  | 'analyze_menu'
+  | 'question'
+  | 'greeting'
+  | 'preference_update'
+  | 'other';
+
+// Note: 'greeting' is now properly handled in parseUnifiedResponse
+
+export type CoachingType =
+  | 'mps_hit'
+  | 'mps_timing'
+  | 'mps_protein'
+  | 'timing_warning'
+  | 'variety_nudge'
+  | 'pacing'
+  | 'celebration'
+  | 'tip'
+  | 'preference_question';
 
 export interface FoodAnalysis {
   foodName: string;
   protein: number;
   calories?: number;
   confidence: 'high' | 'medium' | 'low';
+  category?: FoodCategory;
   consumedAt?: {
     parsedDate: string;
     parsedTime: string;
   };
 }
 
+export interface CoachingMessage {
+  type: CoachingType;
+  message: string;
+  quickReplies?: string[];
+  learnsPreference?: keyof DietaryPreferences;
+}
+
+export interface MenuPick {
+  name: string;
+  protein: number;
+  calories?: number;
+  why: string;
+}
+
 export interface UnifiedResponse {
-  // What type of message this is
   intent: MessageIntent;
 
-  // The coaching/response message (always present, always brief)
+  // Brief acknowledgment (for food logging)
+  acknowledgment?: string;
+
+  // Main message (for questions, greetings)
   message: string;
 
-  // If food was detected, the analysis (for logging)
+  // If food was detected
   foodAnalysis?: FoodAnalysis;
+
+  // Coaching nudge (optional, contextual)
+  coaching?: CoachingMessage;
 
   // Quick reply suggestions
   quickReplies?: string[];
 
-  // For menus: recommended items
-  menuRecommendations?: {
-    name: string;
-    protein: number;
-    reason: string;
-  }[];
+  // For menus
+  menuPicks?: MenuPick[];
 
-  // For corrections: indicates this replaces the previous entry
+  // For corrections
   correctsPreviousEntry?: boolean;
-}
 
-function buildProgressNarrative(insights: ProgressInsights, nickname?: string): string {
-  const parts: string[] = [];
-  const name = nickname || 'User';
-
-  // Streak info
-  if (insights.currentStreak > 0) {
-    if (insights.currentStreak >= 7) {
-      parts.push(`🔥 ${name} is on a ${insights.currentStreak}-day streak! This is serious commitment.`);
-    } else if (insights.currentStreak >= 3) {
-      parts.push(`${name} has a ${insights.currentStreak}-day streak going - building momentum!`);
-    } else {
-      parts.push(`${name} has hit their goal ${insights.currentStreak} day(s) in a row.`);
-    }
-  }
-
-  // Best streak comparison
-  if (insights.longestStreak > insights.currentStreak && insights.longestStreak > 3) {
-    parts.push(`Their best streak was ${insights.longestStreak} days - something to aim for!`);
-  }
-
-  // Consistency
-  if (insights.daysTracked >= 7) {
-    if (insights.consistencyPercent >= 80) {
-      parts.push(`Consistency is excellent - hitting goal ${insights.consistencyPercent.toFixed(0)}% of tracked days.`);
-    } else if (insights.consistencyPercent >= 50) {
-      parts.push(`Hitting goal about ${insights.consistencyPercent.toFixed(0)}% of the time - room to improve but solid foundation.`);
-    } else {
-      parts.push(`Goal hit rate is ${insights.consistencyPercent.toFixed(0)}% - there's opportunity to build better habits here.`);
-    }
-  }
-
-  // Trend
-  if (insights.trend === 'improving') {
-    parts.push(`Trend: IMPROVING - last 7 days average (${insights.last7DaysAvg.toFixed(0)}g) is better than before!`);
-  } else if (insights.trend === 'declining') {
-    parts.push(`Trend: needs attention - recent average (${insights.last7DaysAvg.toFixed(0)}g) has dropped. Worth a gentle check-in.`);
-  } else if (insights.trend === 'consistent') {
-    parts.push(`Trend: Steady and consistent at ~${insights.last7DaysAvg.toFixed(0)}g/day average.`);
-  }
-
-  // Meal patterns
-  if (insights.strongestMealTime && insights.daysTracked >= 5) {
-    parts.push(`Strongest meal time: ${insights.strongestMealTime} - this is where ${name} tends to get the most protein.`);
-    if (insights.weakestMealTime && insights.weakestMealTime !== insights.strongestMealTime) {
-      parts.push(`Opportunity: ${insights.weakestMealTime} tends to be lighter on protein.`);
-    }
-  }
-
-  // Today's pace
-  if (insights.isBehindSchedule) {
-    parts.push(`TODAY: Behind schedule - only ${insights.percentComplete.toFixed(0)}% complete. May need a nudge.`);
-  } else if (insights.isOnTrackToday) {
-    parts.push(`TODAY: On track! ${insights.percentComplete.toFixed(0)}% complete for this time of day.`);
-  }
-
-  return parts.join('\n') || 'New user - still building data for patterns.';
+  // For preference learning
+  learnedPreferences?: Partial<DietaryPreferences>;
 }
 
 function buildUnifiedSystemPrompt(context: UnifiedContext): string {
-  const { goal, consumed, remaining, currentTime, preferences, nickname, insights, recentMeals, lastLoggedEntry } = context;
+  const {
+    goal,
+    consumed,
+    remaining,
+    currentTime,
+    sleepTime,
+    preferences,
+    nickname,
+    lastLoggedEntry,
+    mpsAnalysis,
+    todayByCategory,
+  } = context;
 
   const hour = currentTime.getHours();
-  let timeOfDay = 'morning';
-  if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
-  else if (hour >= 17 && hour < 21) timeOfDay = 'evening';
-  else if (hour >= 21 || hour < 5) timeOfDay = 'night';
+  const name = nickname || 'friend';
 
+  // Calculate hours until sleep
+  let hoursUntilSleep: number | null = null;
+  if (sleepTime) {
+    const [sleepHour] = sleepTime.split(':').map(Number);
+    hoursUntilSleep = sleepHour > hour ? sleepHour - hour : (24 - hour) + sleepHour;
+    if (hoursUntilSleep > 16) hoursUntilSleep = null; // Sanity check
+  }
+
+  // Format dietary restrictions
   const restrictionsList = [
     preferences.allergies?.length ? `ALLERGIES (NEVER suggest): ${preferences.allergies.join(', ')}` : '',
-    preferences.intolerances?.length ? `Intolerances: ${preferences.intolerances.join(', ')}` : '',
+    preferences.intolerances?.length ? `Intolerances (avoid): ${preferences.intolerances.join(', ')}` : '',
     preferences.dietaryRestrictions?.length ? `Diet: ${preferences.dietaryRestrictions.join(', ')}` : '',
     preferences.dislikes?.length ? `Dislikes: ${preferences.dislikes.join(', ')}` : '',
     preferences.favorites?.length ? `Favorites: ${preferences.favorites.join(', ')}` : '',
-  ].filter(Boolean).join(' | ');
+  ].filter(Boolean).join('\n');
 
-  const name = nickname || 'friend';
-
-  // Build last entry info for correction detection
+  // Last entry context
   const lastEntryInfo = lastLoggedEntry
-    ? `\nLAST LOGGED (${lastLoggedEntry.loggedMinutesAgo}min ago): "${lastLoggedEntry.foodName}" - ${lastLoggedEntry.protein}g protein${lastLoggedEntry.calories ? `, ${lastLoggedEntry.calories} kcal` : ''}`
+    ? `LAST LOGGED (${lastLoggedEntry.loggedMinutesAgo}min ago): "${lastLoggedEntry.foodName}" - ${lastLoggedEntry.protein}g protein`
     : '';
 
-  // Build progress narrative for richer context
-  const progressNarrative = buildProgressNarrative(insights, nickname);
+  // MPS context
+  const mpsInfo = mpsAnalysis
+    ? `MPS HITS TODAY: ${mpsAnalysis.hitsToday} | Minutes since last qualified meal: ${mpsAnalysis.minutesSinceLastHit ?? 'none yet'}`
+    : '';
 
-  return `You are a concise nutrition coach helping ${name} hit their protein goals. Channel Dr. Peter Attia's longevity-focused approach but BE BRIEF.
+  // Category breakdown
+  const categoryInfo = todayByCategory
+    ? `TODAY'S PROTEIN BY SOURCE: Meat ${todayByCategory.meat}g | Dairy ${todayByCategory.dairy}g | Plant ${todayByCategory.plant}g | Seafood ${todayByCategory.seafood}g | Eggs ${todayByCategory.eggs}g | Other ${todayByCategory.other}g`
+    : '';
 
-YOUR ROLE: Help log meals AND provide quick coaching - all in one chat.
+  // Determine dominant category
+  let dominantCategory = '';
+  if (todayByCategory) {
+    const categories = Object.entries(todayByCategory) as [string, number][];
+    const sorted = categories.sort((a, b) => b[1] - a[1]);
+    if (sorted[0][1] > 0) {
+      dominantCategory = sorted[0][0];
+    }
+  }
 
-CURRENT STATUS:
-- Goal: ${goal}g | Eaten: ${consumed}g | Left: ${remaining}g
-- Current time: ${currentTime.toISOString()}
-- Time of day: ${timeOfDay}
-- Streak: ${insights.currentStreak} days
-${insights.hoursSinceLastMeal !== null ? `- Last meal: ${insights.hoursSinceLastMeal}h ago` : ''}
-${recentMeals?.length ? `- Recent: ${recentMeals.slice(0, 3).join(', ')}` : ''}${lastEntryInfo}
+  // Next MPS hit number for prompt
+  const nextMpsHit = (mpsAnalysis?.hitsToday ?? 0) + 1;
 
-PROGRESS CONTEXT:
-${progressNarrative}
+  return `You are ${name}'s protein coach. You help log food AND answer nutrition questions.
 
-USER PROFILE: ${restrictionsList || 'No restrictions'}
+## FIRST: Is this a QUESTION or FOOD?
 
-TIME EXTRACTION (IMPORTANT):
-- Look for time mentions in user text like "at 9am", "at 10 am", "30 minutes ago", "2 hours ago", "this morning", "for lunch", "for breakfast", "yesterday", "earlier"
-- Calculate the actual date and time based on the CURRENT TIME provided above
-- Include "consumedAt" in food analysis with format: {"date":"YYYY-MM-DD","time":"HH:mm"}
-- If no time is mentioned, omit the consumedAt field
+**BEFORE doing anything else, ask yourself: Is the user asking a QUESTION or logging FOOD?**
 
-YOU MUST DETECT THE USER'S INTENT:
+QUESTION indicators (use intent "question"):
+- Contains "?"
+- Starts with "what", "why", "how", "should", "can", "is", "does", "will"
+- Asks for advice, explanation, or information
+- Examples: "What is MPS?", "Why does protein matter?", "How much should I eat?"
 
-1. **LOGGING FOOD** (text like "2 eggs" or "chicken salad for lunch"):
-   - Respond with JSON analysis + brief encouraging comment
-   - Format: {"intent":"log_food","food":{"name":"...","protein":N,"calories":N,"confidence":"high|medium|low","consumedAt":{"date":"YYYY-MM-DD","time":"HH:mm"}},"comment":"Brief reaction (1 sentence max)"}
-   - ONLY include consumedAt if user mentions a specific time (e.g., "at 10 am", "for breakfast")
+FOOD indicators (use intent "log_food"):
+- Describes something they ATE: "had chicken", "ate 2 eggs", "just finished a shake"
+- Contains food quantities: "200g", "2 eggs", "a bowl of"
+- Photo of food or nutrition label
 
-2. **CORRECTING PREVIOUS ENTRY** (user says "actually it was X" or "oh it was just 70g" or "make that 200g" shortly after logging):
-   - This REPLACES the previous entry, not adds to it
-   - Use when user is clearly correcting/adjusting what they just logged
-   - Format: {"intent":"correct_food","food":{"name":"...","protein":N,"calories":N,"confidence":"high","consumedAt":{"date":"YYYY-MM-DD","time":"HH:mm"}},"correctsPrevious":true,"comment":"Got it, updated!"}
-   - ONLY include consumedAt if user specifies a time
+⚠️ **NEVER return intent "log_food" for a question. If someone asks "What is protein?" that is NOT a food entry — it's a question. Return intent "question" with a helpful answer.**
 
-3. **MENU PHOTO** (image of a restaurant menu):
-   - Identify best protein options for their remaining goal
-   - Format: {"intent":"analyze_menu","recommendations":[{"name":"...","protein":N,"reason":"brief"}],"comment":"Brief intro"}
+## INTENT DETECTION
 
-4. **FOOD PHOTO** (image of actual food):
-   - Analyze what it is and estimate nutrition
-   - Format: {"intent":"log_food","food":{"name":"...","protein":N,"calories":N,"confidence":"medium","consumedAt":{"date":"YYYY-MM-DD","time":"HH:mm"}},"comment":"Brief reaction"}
-   - ONLY include consumedAt if user mentions time in accompanying text
+| Message type | Intent | Example |
+|--------------|--------|---------|
+| Question about nutrition | question | "What is MPS?", "How much protein do I need?" |
+| Food they ate | log_food | "had 200g chicken", "2 eggs for breakfast" |
+| Correcting previous entry | correct_food | "actually it was 3 eggs", "make that 150g" |
+| Restaurant menu photo | analyze_menu | [image of menu] |
+| Sharing dietary info | preference_update | "I'm vegan", "allergic to nuts" |
+| Greeting/chitchat | greeting | "hi", "thanks" |
 
-5. **QUESTION/CHAT** (asking for suggestions, advice, etc.):
-   - Give brief, actionable advice
-   - Format: {"intent":"question","message":"Your response (2-3 sentences max)","quickReplies":["Option1","Option2"]}
+## RESPONSE FORMAT
 
-CORRECTION DETECTION - use "correct_food" intent when:
-- User says "actually", "oh wait", "no", "make that", "it was actually", "just X" right after logging
-- The correction refers to the same food item (e.g., adjusting portion size)
-- It's within a few minutes of the previous entry
+### IF the message is a QUESTION → use this format:
 
-TONE RULES:
-- MAX 1-2 sentences for comments
-- Be warm but efficient
-- Celebrate wins briefly ("Nice!" "Solid choice." "💪")
-- Gentle nudges, never guilt
-- Skip the lecture - they know protein matters
-- Quick tips only when genuinely helpful
+\`\`\`json
+{
+  "intent": "question",
+  "message": "Your helpful answer here...",
+  "quickReplies": ["Follow-up 1", "Follow-up 2"]
+}
+\`\`\`
 
-ALWAYS respond with valid JSON. The "comment" or "message" field is what the user sees.`;
+**DO NOT include "food" field for questions. Just "intent", "message", and optionally "quickReplies".**
+
+Example questions and good answers:
+- "What is MPS?" → "MPS (muscle protein synthesis) is how your muscles use protein to repair and grow. You need ~25g protein per meal to trigger it fully — think of it as flipping the 'build muscle' switch."
+- "How much protein per meal?" → "Aim for 25-40g per meal. Below 25g doesn't fully trigger MPS, and above 40g has diminishing returns. Quality over quantity!"
+- "Best time to eat protein?" → "Spread it across the day, 3-5 hours apart. This gives you more MPS windows than cramming it all in one meal."
+
+### IF the message describes FOOD they ate → use this format:
+
+\`\`\`json
+{
+  "intent": "log_food",
+  "food": {
+    "name": "Grilled chicken breast",
+    "protein": 62,
+    "calories": 330,
+    "confidence": "high",
+    "category": "meat",
+    "consumedAt": {"date": "YYYY-MM-DD", "time": "HH:mm"}
+  },
+  "acknowledgment": "Nice!",
+  "reasoning": "Classic choice — 200g gives you about 62g protein.",
+  "coaching": {
+    "type": "mps_hit",
+    "message": "💪 MPS hit! Great muscle-building stimulus."
+  }
+}
+\`\`\`
+
+**Be conversational, not robotic:**
+- **acknowledgment**: Vary it! "Nice!", "Got it!", "Good stuff!", "Solid!", "Ooh, classic!"
+- **reasoning**: Talk TO user, not about them. Sound like a friend.
+  - ❌ "User explicitly stated 20g protein..."
+  - ✅ "20g — not bad for a quick snack!"
+- **category**: meat | dairy | seafood | plant | eggs | other
+- **coaching**: Include when triggers match (see below)
+
+### For intent: "correct_food"
+
+\`\`\`json
+{
+  "intent": "correct_food",
+  "food": { ...same as log_food... },
+  "acknowledgment": "Updated!",
+  "correctsPrevious": true
+}
+\`\`\`
+
+### For intent: "analyze_menu"
+
+\`\`\`json
+{
+  "intent": "analyze_menu",
+  "acknowledgment": "Here are my picks:",
+  "menuPicks": [
+    {"name": "8oz Ribeye", "protein": 58, "calories": 650, "why": "Hits your ${remaining}g goal"},
+    {"name": "Grilled Salmon", "protein": 45, "calories": 400, "why": "Lighter, good omega-3s"}
+  ]
+}
+\`\`\`
+
+### For intent: "greeting"
+
+\`\`\`json
+{
+  "intent": "greeting",
+  "message": "Hey! Ready to log some protein or have questions?"
+}
+\`\`\`
+
+### For intent: "preference_update"
+
+\`\`\`json
+{
+  "intent": "preference_update",
+  "message": "Noted! I'll remember that.",
+  "learnedPreferences": {"dietaryRestrictions": ["vegan"]}
+}
+\`\`\`
+
+## COACHING TRIGGERS (for log_food intent)
+
+When logging food, check these conditions and ADD a coaching message:
+
+| Condition | Type | Message |
+|-----------|------|---------|
+| protein >= 25 AND minutesSinceLastHit >= 180 (or first meal) | mps_hit | "💪 MPS hit #${nextMpsHit}! Solid stimulus." |
+| protein >= 20 AND protein < 25 | mps_protein | "Close to 25g! A bit more would trigger full MPS." |
+| minutesSinceLastHit < 180 AND minutesSinceLastHit != null | mps_timing | "Good protein, but only Xmin since last meal. 3h+ spacing maximizes MPS." |
+| protein >= 30 AND hoursUntilSleep <= 3 | timing_warning | "Heavy protein late — may affect sleep. Lighter options: yogurt, cottage cheese." |
+| consumed + this meal's protein >= goal (${goal}g) | celebration | "🎯 Goal hit! [total]g today." |
+| consumed + this meal's protein >= goal * 0.9 | celebration | "Almost there! Just [remaining]g to go." |
+| ${dominantCategory || 'one category'} accounts for >60% of today's protein | variety_nudge | "Lots of ${dominantCategory || 'one source'} today — try mixing sources for better aminos." |
+
+**IMPORTANT: Include coaching when conditions match. Don't skip it.**
+
+## CONTEXT
+
+USER: ${name}
+PROGRESS: ${consumed}g / ${goal}g (${remaining}g remaining)
+TIME: ${currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+${sleepTime ? `SLEEP TIME: ~${sleepTime} (${hoursUntilSleep}h away)` : ''}
+${mpsInfo}
+${categoryInfo}
+${lastEntryInfo}
+${restrictionsList ? `DIETARY: ${restrictionsList}` : ''}
+
+## KNOWLEDGE BASE (for questions)
+
+- **MPS**: Muscle protein synthesis needs ~25g protein (leucine threshold). Peaks 1-2h post-meal, then 3-5h refractory. 60g in one meal ≠ 2x effect.
+- **Plant protein**: Needs ~40% more volume for same MPS. 25g whey ≈ 35-40g pea protein.
+- **Sleep**: Heavy meals within 3h of bed hurt deep sleep. Casein (cottage cheese) digests slowly without disrupting.
+- **Leucine**: ~2.5-3g triggers MPS. Eggs ~0.5g each, chicken ~2.5g/100g, whey ~3g/scoop.
+- **Spacing**: 4-5h between meals optimal. Gives muscles time to reset for next MPS window.
+
+## TONE
+
+**Be a friend, not a robot:**
+- Talk TO the user ("You got...", "That gives you...") — never about them ("User has stated...")
+- Vary your reactions — don't always say "Got it!"
+- Keep it warm but brief
+- A little personality is good ("Ooh, steak!" or "Eggs again? Nothing wrong with that!")
+- When in doubt, sound like a supportive gym buddy, not a nutrition label`;
 }
 
 export async function processUnifiedMessage(
@@ -268,7 +420,7 @@ export async function processUnifiedMessage(
   if (useProxy) {
     const proxyResponse = await sendProxyRequest({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 800,
+      max_tokens: 1000,
       system: buildUnifiedSystemPrompt(context),
       messages: messages as any,
       request_type: 'unified',
@@ -285,7 +437,7 @@ export async function processUnifiedMessage(
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 800,
+      max_tokens: 1000,
       system: buildUnifiedSystemPrompt(context),
       messages: messages as Anthropic.MessageParam[],
     });
@@ -298,11 +450,14 @@ export async function processUnifiedMessage(
   }
 
   // Parse JSON response
+  return parseUnifiedResponse(responseText);
+}
+
+function parseUnifiedResponse(responseText: string): UnifiedResponse {
   try {
     // Extract JSON from response (might have markdown code blocks)
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      // Fallback: treat as plain message
       return {
         intent: 'other',
         message: responseText,
@@ -311,56 +466,114 @@ export async function processUnifiedMessage(
 
     const parsed = JSON.parse(jsonMatch[0]);
 
-    // Map to our response format
+    // Handle food logging
     if (parsed.intent === 'log_food' && parsed.food) {
+      // Check if this is actually a failed food detection (AI returning "no food" as log_food)
+      const foodName = (parsed.food.name || '').toLowerCase();
+      const isNoFood = foodName.includes('no food') ||
+                       foodName.includes('unknown') ||
+                       foodName.includes('unable') ||
+                       foodName.includes('not provided') ||
+                       (parsed.food.protein === 0 && parsed.food.confidence === 'low');
+
+      if (isNoFood) {
+        // Convert to a helpful message instead of showing a 0g food card
+        const reasoning = parsed.reasoning || parsed.acknowledgment || '';
+        // Check if the reasoning mentions it's a question
+        if (reasoning.toLowerCase().includes('question') ||
+            reasoning.toLowerCase().includes('asking for information')) {
+          return {
+            intent: 'question' as MessageIntent,
+            message: "I can help with nutrition questions! But I'm primarily designed to log food. Try asking in a different way, or describe what you ate.",
+            quickReplies: ['What foods are high in protein?', 'How much protein do I need?'],
+          };
+        }
+        return {
+          intent: 'other',
+          message: reasoning || "I couldn't identify a food item. Try describing what you ate more specifically.",
+        };
+      }
+
+      // Use reasoning for display, fallback to acknowledgment
+      const displayMessage = parsed.reasoning || parsed.acknowledgment || 'Logged!';
       return {
         intent: 'log_food',
-        message: parsed.comment || 'Logged!',
+        acknowledgment: displayMessage,
+        message: displayMessage,
         foodAnalysis: {
           foodName: parsed.food.name,
           protein: parsed.food.protein,
           calories: parsed.food.calories,
           confidence: parsed.food.confidence || 'medium',
+          category: parsed.food.category,
           consumedAt: parsed.food.consumedAt,
         },
+        coaching: parsed.coaching,
         quickReplies: parsed.quickReplies,
       };
     }
 
-    // Handle corrections - same as log_food but with correctsPreviousEntry flag
+    // Handle corrections
     if (parsed.intent === 'correct_food' && parsed.food) {
+      const displayMessage = parsed.reasoning || parsed.acknowledgment || 'Updated!';
       return {
         intent: 'correct_food',
-        message: parsed.comment || 'Updated!',
+        acknowledgment: displayMessage,
+        message: displayMessage,
         foodAnalysis: {
           foodName: parsed.food.name,
           protein: parsed.food.protein,
           calories: parsed.food.calories,
           confidence: parsed.food.confidence || 'high',
+          category: parsed.food.category,
           consumedAt: parsed.food.consumedAt,
         },
         correctsPreviousEntry: true,
+        coaching: parsed.coaching,
         quickReplies: parsed.quickReplies,
       };
     }
 
+    // Handle greetings
+    if (parsed.intent === 'greeting') {
+      return {
+        intent: 'greeting' as MessageIntent,
+        message: parsed.message || 'Hey! Ready to log some protein?',
+        quickReplies: parsed.quickReplies,
+      };
+    }
+
+    // Handle menu analysis
     if (parsed.intent === 'analyze_menu') {
       return {
         intent: 'analyze_menu',
-        message: parsed.comment || 'Here are my top picks:',
-        menuRecommendations: parsed.recommendations,
+        acknowledgment: parsed.acknowledgment || 'Here are my picks:',
+        message: parsed.acknowledgment || 'Here are my picks:',
+        menuPicks: parsed.menuPicks || parsed.recommendations,
+        coaching: parsed.coaching,
         quickReplies: parsed.quickReplies,
       };
     }
 
-    // Question or other
+    // Handle preference updates
+    if (parsed.intent === 'preference_update') {
+      return {
+        intent: 'preference_update',
+        message: parsed.message || 'Got it!',
+        learnedPreferences: parsed.learnedPreferences,
+        quickReplies: parsed.quickReplies,
+      };
+    }
+
+    // Handle questions and other
     return {
       intent: parsed.intent || 'question',
       message: parsed.message || parsed.comment || responseText,
+      coaching: parsed.coaching,
       quickReplies: parsed.quickReplies,
     };
 
-  } catch (e) {
+  } catch {
     // JSON parse failed, return as plain message
     return {
       intent: 'other',
@@ -371,10 +584,30 @@ export async function processUnifiedMessage(
 
 // Generate a contextual greeting when user opens the chat
 export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse {
-  const { insights, nickname, remaining } = context;
+  const { insights, nickname, remaining, preferences, preferencesSource } = context;
   const now = new Date();
   const hour = now.getHours();
   const name = nickname ? `${nickname}` : '';
+
+  // Check if user has preferences set (acknowledge settings)
+  const hasPreferences = preferences.allergies?.length ||
+    preferences.intolerances?.length ||
+    preferences.dietaryRestrictions?.length ||
+    preferences.sleepTime;
+
+  // First time with preferences from settings - acknowledge
+  if (preferencesSource === 'settings' && hasPreferences && insights.daysTracked < 2) {
+    const prefSummary = [
+      preferences.dietaryRestrictions?.length ? preferences.dietaryRestrictions.join(', ') : '',
+      preferences.sleepTime ? `sleep ~${preferences.sleepTime}` : '',
+    ].filter(Boolean).join(', ');
+
+    return {
+      intent: 'greeting',
+      message: `I see you've set up your profile${prefSummary ? ` (${prefSummary})` : ''} — I'll keep that in mind! What are you eating?`,
+      quickReplies: ['Log a meal', 'What should I eat?'],
+    };
+  }
 
   // Late night, goal met - celebrate!
   if ((hour >= 21 || hour < 5) && insights.percentComplete >= 100) {
@@ -383,12 +616,12 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
       : '';
     return {
       intent: 'greeting',
-      message: `${insights.todayProtein}g today - goal crushed! 💪${streakMsg}`,
+      message: `${insights.todayProtein}g today — goal crushed! 💪${streakMsg}`,
       quickReplies: ['Plan tomorrow', 'Quick snack ideas'],
     };
   }
 
-  // Streak milestone - acknowledge big achievements
+  // Streak milestone
   if (insights.currentStreak >= 7 && insights.percentComplete >= 100) {
     return {
       intent: 'greeting',
@@ -397,30 +630,28 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     };
   }
 
-  // Streak broken yesterday - motivate recovery
+  // Streak broken - motivate recovery
   if (insights.currentStreak === 0 && insights.longestStreak > 3 && insights.daysTracked > 7) {
     return {
       intent: 'greeting',
-      message: `Fresh start today! Your best was ${insights.longestStreak} days - let's build back up.`,
+      message: `Fresh start today! Your best was ${insights.longestStreak} days — let's build back up.`,
       quickReplies: ['Log a meal', 'Motivate me'],
     };
   }
 
   // Pattern-based: weak meal time opportunity
   if (insights.weakestMealTime && insights.mealsToday > 0) {
-    const mealTimeLabels = { breakfast: 'morning', lunch: 'lunch', dinner: 'dinner', snacks: 'snack' };
+    const mealTimeLabels: Record<string, string> = { breakfast: 'morning', lunch: 'lunch', dinner: 'dinner', snacks: 'snack' };
     const strongTime = insights.strongestMealTime ? mealTimeLabels[insights.strongestMealTime] : null;
 
-    // Morning - suggest breakfast improvement if that's weak
     if (hour >= 6 && hour < 11 && insights.weakestMealTime === 'breakfast') {
       return {
         intent: 'greeting',
-        message: `${strongTime ? `Your ${strongTime} game is strong! ` : ''}Breakfast is your opportunity - want some high-protein ideas?`,
+        message: `${strongTime ? `Your ${strongTime} game is strong! ` : ''}Breakfast is your opportunity — want some high-protein ideas?`,
         quickReplies: ['Breakfast ideas', 'Log breakfast'],
       };
     }
 
-    // Afternoon - suggest lunch improvement if that's weak
     if (hour >= 11 && hour < 15 && insights.weakestMealTime === 'lunch') {
       return {
         intent: 'greeting',
@@ -432,7 +663,6 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
 
   // Behind schedule with specific guidance
   if (insights.isBehindSchedule && remaining > 30) {
-    // Calculate how many hours until typical sleep time (assume 10pm if not set)
     const hoursLeft = insights.hoursUntilSleep || (22 - hour);
     const proteinPerMeal = Math.ceil(remaining / Math.max(1, Math.floor(hoursLeft / 3)));
 
@@ -454,7 +684,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
   // On track - positive reinforcement
   if (insights.percentComplete >= 70) {
     const almostMsg = remaining <= 20
-      ? `Just ${remaining}g away - one snack and you're there!`
+      ? `Just ${remaining}g away — one snack and you're there!`
       : `${insights.todayProtein}g down, ${remaining}g to go. Almost there!`;
     return {
       intent: 'greeting',
@@ -463,9 +693,8 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     };
   }
 
-  // Morning, no meals yet - check consistency patterns
+  // Morning, no meals yet
   if (hour >= 6 && hour < 11 && insights.mealsToday === 0) {
-    // If they usually log breakfast by now
     if (hour >= 9 && insights.strongestMealTime === 'breakfast') {
       return {
         intent: 'greeting',
@@ -475,25 +704,25 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     }
     return {
       intent: 'greeting',
-      message: `${name ? 'Morning ' + name + '! ' : ''}Ready to start? Log breakfast or ask for ideas.`,
+      message: `${name ? 'Morning ' + name + '! ' : 'Morning! '}Ready to start? Log breakfast or ask for ideas.`,
       quickReplies: ['Breakfast ideas', 'Log a meal'],
     };
   }
 
-  // Consistency feedback for users with history
+  // Consistency feedback
   if (insights.daysTracked >= 7 && insights.consistencyPercent >= 80) {
     return {
       intent: 'greeting',
-      message: `${insights.consistencyPercent.toFixed(0)}% consistency - solid work! ${insights.todayProtein}g logged so far.`,
+      message: `${insights.consistencyPercent.toFixed(0)}% consistency — solid work! ${insights.todayProtein}g logged so far.`,
       quickReplies: ['Log a meal', 'Suggest something'],
     };
   }
 
-  // Improving trend encouragement
+  // Improving trend
   if (insights.trend === 'improving' && insights.daysTracked >= 7) {
     return {
       intent: 'greeting',
-      message: `Trending up! Your last 7 days avg (${insights.last7DaysAvg.toFixed(0)}g) is better than before. Keep it going!`,
+      message: `Trending up! Your 7-day avg (${insights.last7DaysAvg.toFixed(0)}g) is better than before. Keep it going!`,
       quickReplies: ['Log a meal', 'What should I eat?'],
     };
   }

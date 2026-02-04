@@ -2,22 +2,18 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Dashboard } from '@/pages/Dashboard';
-import { Chat } from '@/pages/Chat';
 import { UnifiedChat } from '@/pages/UnifiedChat';
 import { History } from '@/pages/History';
 import { Settings } from '@/pages/Settings';
 import { SwipeProvider } from '@/context/SwipeContext';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { initializeAuth, useAuthStore } from '@/store/useAuthStore';
-import { hasFeature } from '@/lib/features';
+import { initializeAuth } from '@/store/useAuthStore';
 import { Analytics } from '@vercel/analytics/react';
 
-// Coach page - unified experience for beta users, old Chat for others
+// Coach page - unified experience for all users
 function CoachPage() {
-  const { user } = useAuthStore();
-  const isBeta = hasFeature('buddy-v2', user?.email);
-  return isBeta ? <UnifiedChat /> : <Chat />;
+  return <UnifiedChat />;
 }
 
 function App() {
@@ -48,3 +44,4 @@ function App() {
 }
 
 export default App;
+// Force redeploy Wed Feb  4 00:18:22 CET 2026
