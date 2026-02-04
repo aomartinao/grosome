@@ -6,7 +6,6 @@ import { useStore } from '@/store/useStore';
 import { compressImage, cn, triggerHaptic } from '@/lib/utils';
 
 const LONG_PRESS_DURATION = 400; // ms to trigger long press
-const OPTION_DISTANCE = 70; // distance from center to options
 
 interface FloatingAddButtonProps {
   className?: string;
@@ -23,53 +22,24 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
 
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const optionsRef = useRef<HTMLDivElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const hasMovedRef = useRef(false);
   const isLongPressRef = useRef(false);
-
-  // Get button center position for calculating touch position relative to button
-  const getButtonCenter = useCallback(() => {
-    if (!buttonRef.current) return { x: 0, y: 0 };
-    const rect = buttonRef.current.getBoundingClientRect();
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    };
-  }, []);
-
-  // Determine which option is selected based on touch position
-  const getSelectedOption = useCallback((touchX: number, touchY: number): SelectedOption => {
-    const center = getButtonCenter();
-    const dx = touchX - center.x;
-    const dy = touchY - center.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    // Need to be far enough from center to select
-    if (distance < 30) return null;
-
-    // Camera is to the left-up, Gallery is straight up
-    // Using angle to determine selection
-    const angle = Math.atan2(-dy, dx) * (180 / Math.PI); // -dy because y increases downward
-
-    // Camera: upper-left area (roughly 100-170 degrees)
-    // Gallery: upper-right area (roughly 10-80 degrees)
-    if (angle > 100 && angle <= 180) return 'camera';
-    if (angle > 0 && angle <= 80) return 'gallery';
-
-    return null;
-  }, [getButtonCenter]);
+  const menuJustOpenedRef = useRef(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     hasMovedRef.current = false;
     isLongPressRef.current = false;
+    menuJustOpenedRef.current = false;
 
-    // Start long press timer
     longPressTimerRef.current = setTimeout(() => {
       isLongPressRef.current = true;
+      menuJustOpenedRef.current = true;
       setIsExpanded(true);
       triggerHaptic('medium');
     }, LONG_PRESS_DURATION);
@@ -83,7 +53,6 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
     const dy = touch.clientY - touchStartRef.current.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // If moved significantly before long press triggered, cancel long press
     if (distance > 10 && !isLongPressRef.current) {
       hasMovedRef.current = true;
       if (longPressTimerRef.current) {
@@ -91,48 +60,42 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
         longPressTimerRef.current = null;
       }
     }
-
-    // If expanded, determine selected option based on touch position
-    if (isExpanded) {
-      const option = getSelectedOption(touch.clientX, touch.clientY);
-      setSelectedOption(option);
-    }
-  }, [isExpanded, getSelectedOption]);
+  }, []);
 
   const handleTouchEnd = useCallback(() => {
-    // Clear long press timer
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
 
+    if (menuJustOpenedRef.current) {
+      menuJustOpenedRef.current = false;
+      touchStartRef.current = null;
+      hasMovedRef.current = false;
+      isLongPressRef.current = false;
+      return;
+    }
+
     if (isExpanded) {
-      // Handle selected option
-      if (selectedOption === 'camera') {
-        cameraInputRef.current?.click();
-      } else if (selectedOption === 'gallery') {
-        galleryInputRef.current?.click();
-      }
-      // Close menu
       setIsExpanded(false);
       setSelectedOption(null);
     } else if (!hasMovedRef.current && !isLongPressRef.current) {
-      // Simple tap - navigate to coach
       navigate('/coach');
     }
 
     touchStartRef.current = null;
     hasMovedRef.current = false;
     isLongPressRef.current = false;
-  }, [isExpanded, selectedOption, navigate]);
+  }, [isExpanded, navigate]);
 
-  // Handle mouse events for desktop
   const handleMouseDown = useCallback(() => {
     hasMovedRef.current = false;
     isLongPressRef.current = false;
+    menuJustOpenedRef.current = false;
 
     longPressTimerRef.current = setTimeout(() => {
       isLongPressRef.current = true;
+      menuJustOpenedRef.current = true;
       setIsExpanded(true);
     }, LONG_PRESS_DURATION);
   }, []);
@@ -143,12 +106,13 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
       longPressTimerRef.current = null;
     }
 
+    if (menuJustOpenedRef.current) {
+      menuJustOpenedRef.current = false;
+      isLongPressRef.current = false;
+      return;
+    }
+
     if (isExpanded) {
-      if (selectedOption === 'camera') {
-        cameraInputRef.current?.click();
-      } else if (selectedOption === 'gallery') {
-        galleryInputRef.current?.click();
-      }
       setIsExpanded(false);
       setSelectedOption(null);
     } else if (!isLongPressRef.current) {
@@ -156,17 +120,13 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
     }
 
     isLongPressRef.current = false;
-  }, [isExpanded, selectedOption, navigate]);
+  }, [isExpanded, navigate]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isExpanded) {
-      const option = getSelectedOption(e.clientX, e.clientY);
-      setSelectedOption(option);
-    }
-  }, [isExpanded, getSelectedOption]);
+  const handleOptionClick = useCallback((option: 'camera' | 'gallery', e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    triggerHaptic('light');
 
-  // Handle click on expanded options (for desktop hover)
-  const handleOptionClick = useCallback((option: 'camera' | 'gallery') => {
     if (option === 'camera') {
       cameraInputRef.current?.click();
     } else {
@@ -176,7 +136,6 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
     setSelectedOption(null);
   }, []);
 
-  // Handle file selection
   const handleFileChange = useCallback(async (
     e: React.ChangeEvent<HTMLInputElement>,
     source: 'camera' | 'gallery'
@@ -194,22 +153,25 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
     e.target.value = '';
   }, [navigate, setPendingImageFromHome]);
 
-  // Close on outside tap when expanded
+  // Close on outside tap - but NOT on option buttons
   useEffect(() => {
     if (!isExpanded) return;
 
     const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
-      if (buttonRef.current && !buttonRef.current.contains(e.target as Node)) {
-        setIsExpanded(false);
-        setSelectedOption(null);
-      }
+      const target = e.target as Node;
+
+      // Don't close if clicking the main button or option buttons
+      if (buttonRef.current?.contains(target)) return;
+      if (optionsRef.current?.contains(target)) return;
+
+      setIsExpanded(false);
+      setSelectedOption(null);
     };
 
-    // Small delay to avoid immediate trigger
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', handleOutsideClick);
       document.addEventListener('touchstart', handleOutsideClick);
-    }, 50);
+    }, 100);
 
     return () => {
       clearTimeout(timer);
@@ -218,7 +180,6 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
     };
   }, [isExpanded]);
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (longPressTimerRef.current) {
@@ -257,55 +218,54 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
         />
       )}
 
-      {/* Option buttons that pop up */}
+      {/* Option buttons - below the main button */}
       {isExpanded && (
-        <>
-          {/* Camera option - upper left */}
-          <Button
-            size="icon"
-            variant={selectedOption === 'camera' ? 'default' : 'secondary'}
+        <div
+          ref={optionsRef}
+          className="fixed top-[4.5rem] right-4 z-50 flex flex-col gap-3 items-end"
+        >
+          {/* Camera option */}
+          <button
+            type="button"
             className={cn(
-              'fixed h-12 w-12 rounded-full shadow-lg z-50 transition-all duration-200',
-              selectedOption === 'camera' && 'scale-110 ring-2 ring-primary ring-offset-2'
+              'h-12 w-12 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center',
+              selectedOption === 'camera'
+                ? 'bg-primary text-primary-foreground scale-110 ring-2 ring-primary ring-offset-2'
+                : 'bg-secondary text-secondary-foreground'
             )}
-            style={{
-              bottom: `calc(6rem + ${OPTION_DISTANCE}px)`,
-              right: `calc(1rem + ${OPTION_DISTANCE * 0.7}px)`,
-            }}
-            onClick={() => handleOptionClick('camera')}
+            onClick={(e) => handleOptionClick('camera', e)}
+            onTouchEnd={(e) => handleOptionClick('camera', e)}
             onMouseEnter={() => setSelectedOption('camera')}
             onMouseLeave={() => setSelectedOption(null)}
           >
             <Camera className="h-5 w-5" />
-          </Button>
+          </button>
 
-          {/* Gallery option - upper right */}
-          <Button
-            size="icon"
-            variant={selectedOption === 'gallery' ? 'default' : 'secondary'}
+          {/* Gallery option */}
+          <button
+            type="button"
             className={cn(
-              'fixed h-12 w-12 rounded-full shadow-lg z-50 transition-all duration-200',
-              selectedOption === 'gallery' && 'scale-110 ring-2 ring-primary ring-offset-2'
+              'h-12 w-12 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center',
+              selectedOption === 'gallery'
+                ? 'bg-primary text-primary-foreground scale-110 ring-2 ring-primary ring-offset-2'
+                : 'bg-secondary text-secondary-foreground'
             )}
-            style={{
-              bottom: `calc(6rem + ${OPTION_DISTANCE}px)`,
-              right: `calc(1rem - ${OPTION_DISTANCE * 0.3}px)`,
-            }}
-            onClick={() => handleOptionClick('gallery')}
+            onClick={(e) => handleOptionClick('gallery', e)}
+            onTouchEnd={(e) => handleOptionClick('gallery', e)}
             onMouseEnter={() => setSelectedOption('gallery')}
             onMouseLeave={() => setSelectedOption(null)}
           >
             <ImageIcon className="h-5 w-5" />
-          </Button>
-        </>
+          </button>
+        </div>
       )}
 
-      {/* Main button */}
+      {/* Main button - header level, right side like iOS */}
       <Button
         ref={buttonRef}
         size="icon"
         className={cn(
-          'fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-lg z-50 transition-transform duration-200 select-none touch-none',
+          'fixed top-4 right-4 h-12 w-12 rounded-full shadow-lg z-50 transition-transform duration-200 select-none safe-area-inset-top',
           isExpanded && 'rotate-45 bg-muted text-muted-foreground',
           className
         )}
@@ -314,14 +274,8 @@ export function FloatingAddButton({ className }: FloatingAddButtonProps) {
         onTouchEnd={handleTouchEnd}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => {
-          if (isExpanded) {
-            setSelectedOption(null);
-          }
-        }}
       >
-        <Plus className="h-7 w-7" />
+        <Plus className="h-6 w-6" />
       </Button>
     </>
   );
