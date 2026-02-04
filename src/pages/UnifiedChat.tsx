@@ -448,11 +448,21 @@ export function UnifiedChat() {
     // Calculate consumedAt
     let consumedAt: Date | undefined;
     let entryDate = getToday();
-    if (analysis.consumedAt) {
+    if (analysis.consumedAt?.parsedDate && analysis.consumedAt?.parsedTime) {
       const [year, month, day] = analysis.consumedAt.parsedDate.split('-').map(Number);
       const [hours, minutes] = analysis.consumedAt.parsedTime.split(':').map(Number);
-      consumedAt = new Date(year, month - 1, day, hours, minutes);
-      entryDate = analysis.consumedAt.parsedDate;
+      const parsedDate = new Date(year, month - 1, day, hours, minutes);
+
+      // Validate the date is reasonable (within last 2 days) - AI sometimes hallucinates dates
+      const now = new Date();
+      const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+      if (parsedDate >= twoDaysAgo && parsedDate <= now) {
+        consumedAt = parsedDate;
+        entryDate = analysis.consumedAt.parsedDate;
+      } else {
+        // Use today's date with the parsed time
+        consumedAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+      }
     }
 
     const foodEntrySyncId = crypto.randomUUID();
@@ -737,11 +747,21 @@ export function UnifiedChat() {
         {pendingFood && (() => {
           // Convert parsed time to Date if available
           let pendingConsumedAt: Date | undefined;
-          if (pendingFood.analysis.consumedAt) {
+          if (pendingFood.analysis.consumedAt?.parsedDate && pendingFood.analysis.consumedAt?.parsedTime) {
             const { parsedDate, parsedTime } = pendingFood.analysis.consumedAt;
             const [year, month, day] = parsedDate.split('-').map(Number);
             const [hours, minutes] = parsedTime.split(':').map(Number);
-            pendingConsumedAt = new Date(year, month - 1, day, hours, minutes);
+            const parsed = new Date(year, month - 1, day, hours, minutes);
+
+            // Validate the date is reasonable (within last 2 days)
+            const now = new Date();
+            const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+            if (parsed >= twoDaysAgo && parsed <= now) {
+              pendingConsumedAt = parsed;
+            } else {
+              // Use today's date with the parsed time
+              pendingConsumedAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+            }
           }
           return (
             <div className="mt-3 mb-2">

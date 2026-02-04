@@ -344,6 +344,7 @@ When logging food, check these conditions and ADD a coaching message:
 
 USER: ${name}
 PROGRESS: ${consumed}g / ${goal}g (${remaining}g remaining)
+DATE: ${currentTime.toLocaleDateString('en-CA')}
 TIME: ${currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
 ${sleepTime ? `SLEEP TIME: ~${sleepTime} (${hoursUntilSleep}h away)` : ''}
 ${mpsInfo}
@@ -496,6 +497,12 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
 
       // Use reasoning for display, fallback to acknowledgment
       const displayMessage = parsed.reasoning || parsed.acknowledgment || 'Logged!';
+      // Map AI response format (date/time) to internal format (parsedDate/parsedTime)
+      const consumedAt = parsed.food.consumedAt ? {
+        parsedDate: parsed.food.consumedAt.date || parsed.food.consumedAt.parsedDate,
+        parsedTime: parsed.food.consumedAt.time || parsed.food.consumedAt.parsedTime,
+      } : undefined;
+
       return {
         intent: 'log_food',
         acknowledgment: displayMessage,
@@ -506,7 +513,7 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
           calories: parsed.food.calories,
           confidence: parsed.food.confidence || 'medium',
           category: parsed.food.category,
-          consumedAt: parsed.food.consumedAt,
+          consumedAt,
         },
         coaching: parsed.coaching,
         quickReplies: parsed.quickReplies,
@@ -516,6 +523,12 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
     // Handle corrections
     if (parsed.intent === 'correct_food' && parsed.food) {
       const displayMessage = parsed.reasoning || parsed.acknowledgment || 'Updated!';
+      // Map AI response format (date/time) to internal format (parsedDate/parsedTime)
+      const consumedAt = parsed.food.consumedAt ? {
+        parsedDate: parsed.food.consumedAt.date || parsed.food.consumedAt.parsedDate,
+        parsedTime: parsed.food.consumedAt.time || parsed.food.consumedAt.parsedTime,
+      } : undefined;
+
       return {
         intent: 'correct_food',
         acknowledgment: displayMessage,
@@ -526,7 +539,7 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
           calories: parsed.food.calories,
           confidence: parsed.food.confidence || 'high',
           category: parsed.food.category,
-          consumedAt: parsed.food.consumedAt,
+          consumedAt,
         },
         correctsPreviousEntry: true,
         coaching: parsed.coaching,
