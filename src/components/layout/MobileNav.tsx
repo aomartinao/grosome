@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Home, MessageSquare, Calendar, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -11,30 +10,8 @@ const navItems = [
 ];
 
 export function MobileNav() {
-  // Detect if running as standalone PWA (Arc browser adds its own toolbar)
-  const [isStandalone, setIsStandalone] = useState(false);
-
-  useEffect(() => {
-    // Check for standalone mode (PWA installed)
-    const checkStandalone = () => {
-      const isStandaloneMode =
-        window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-      setIsStandalone(isStandaloneMode);
-    };
-    checkStandalone();
-
-    // Listen for changes
-    const mediaQuery = window.matchMedia('(display-mode: standalone)');
-    mediaQuery.addEventListener('change', checkStandalone);
-    return () => mediaQuery.removeEventListener('change', checkStandalone);
-  }, []);
-
   return (
-    <nav className={cn(
-      "fixed left-4 right-4 z-50 floating-nav safe-area-inset-bottom",
-      isStandalone ? "bottom-14" : "bottom-4" // Extra space for Arc's PWA toolbar
-    )}>
+    <nav className="fixed bottom-4 left-4 right-4 z-50 floating-nav">
       <div className="flex items-center justify-around h-14 px-2">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
