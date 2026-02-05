@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Settings, LogOut, Trash2, CalendarCheck, RefreshCw, Target, Loader2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { version } from '../../../package.json';
@@ -39,6 +39,41 @@ export function Header() {
   const isCoachPage = location.pathname === '/coach' || location.pathname === '/chat' || location.pathname === '/advisor';
   const insights = useProgressInsights();
   const { settings } = useSettings();
+
+  // Celebration particles state
+  const [showCelebration, setShowCelebration] = useState(false);
+  const prevPercentRef = useRef(insights.percentComplete);
+
+  // Detect when we cross the 100% threshold
+  useEffect(() => {
+    const wasBelow = prevPercentRef.current < 100;
+    const isNowComplete = insights.percentComplete >= 100;
+
+    if (wasBelow && isNowComplete && isCoachPage) {
+      setShowCelebration(true);
+      // Hide after animation completes
+      const timer = setTimeout(() => setShowCelebration(false), 2000);
+      return () => clearTimeout(timer);
+    }
+
+    prevPercentRef.current = insights.percentComplete;
+  }, [insights.percentComplete, isCoachPage]);
+
+  // Generate particles for celebration
+  const particles = showCelebration ? Array.from({ length: 30 }, (_, i) => {
+    const angle = (-60 - Math.random() * 60) * (Math.PI / 180); // Convert to radians, upward spread
+    const speed = 80 + Math.random() * 120;
+    return {
+      id: i,
+      x: Math.random() * 100, // % position across the bar
+      tx: Math.cos(angle) * speed, // final X offset
+      ty: Math.sin(angle) * speed, // final Y offset (negative = up)
+      size: 4 + Math.random() * 6,
+      color: ['bg-green-400', 'bg-green-500', 'bg-lime-400', 'bg-yellow-400', 'bg-emerald-400'][Math.floor(Math.random() * 5)],
+      delay: Math.random() * 0.2,
+      duration: 0.6 + Math.random() * 0.4,
+    };
+  }) : [];
 
   const handleCheckForUpdates = async () => {
     setIsCheckingUpdate(true);
@@ -263,11 +298,31 @@ export function Header() {
         </div>
         {/* Progress bar for Coach page */}
         {isCoachPage && (
-          <div className="h-1 bg-gray-200 dark:bg-gray-700">
+          <div className="h-1 bg-gray-200 dark:bg-gray-700 relative overflow-visible">
             <div
               className={`h-full transition-all duration-500 ${getProgressBgColor()} ${isGoalReached ? 'animate-pulse shadow-lg shadow-green-500/50' : ''}`}
               style={{ width: `${Math.min(100, percent)}%` }}
             />
+            {/* Celebration particles */}
+            {showCelebration && (
+              <div className="absolute inset-0 overflow-visible pointer-events-none">
+                {particles.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`absolute rounded-full ${p.color}`}
+                    style={{
+                      left: `${p.x}%`,
+                      bottom: 0,
+                      width: p.size,
+                      height: p.size,
+                      animation: `particle-burst ${p.duration}s ease-out ${p.delay}s forwards`,
+                      '--tx': `${p.tx}px`,
+                      '--ty': `${p.ty}px`,
+                    } as React.CSSProperties}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </header>

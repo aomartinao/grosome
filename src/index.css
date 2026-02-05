@@ -145,6 +145,18 @@
     animation: slide-up-fade 0.3s ease-out;
   }
 
+  /* Particle burst animation for goal celebration */
+  @keyframes particle-burst {
+    0% {
+      opacity: 1;
+      transform: translate(0, 0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(var(--tx), var(--ty)) scale(0.3);
+    }
+  }
+
   /* Floating nav - iOS liquid glass style (always light mode) */
   .floating-nav {
     background: linear-gradient(
