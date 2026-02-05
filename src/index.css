@@ -145,15 +145,19 @@
     animation: slide-up-fade 0.3s ease-out;
   }
 
-  /* Particle burst animation for goal celebration */
-  @keyframes particle-burst {
+  /* Particle drop animation for goal celebration - burst up then fall like water */
+  @keyframes particle-drop {
     0% {
       opacity: 1;
       transform: translate(0, 0) scale(1);
     }
+    15% {
+      opacity: 1;
+      transform: translate(calc(var(--drift) * 0.3), calc(var(--burst-height) * -1)) scale(1.2);
+    }
     100% {
       opacity: 0;
-      transform: translate(var(--tx), var(--ty)) scale(0.3);
+      transform: translate(var(--drift), calc(100vh - 60px)) scale(0.6);
     }
   }
 

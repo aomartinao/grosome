@@ -51,27 +51,27 @@ export function Header() {
 
     if (wasBelow && isNowComplete && isCoachPage) {
       setShowCelebration(true);
-      // Hide after animation completes
-      const timer = setTimeout(() => setShowCelebration(false), 2000);
+      // Hide after animation completes (longer for full-page drop)
+      const timer = setTimeout(() => setShowCelebration(false), 3500);
       return () => clearTimeout(timer);
     }
 
     prevPercentRef.current = insights.percentComplete;
   }, [insights.percentComplete, isCoachPage]);
 
-  // Generate particles for celebration
-  const particles = showCelebration ? Array.from({ length: 30 }, (_, i) => {
-    const angle = (-60 - Math.random() * 60) * (Math.PI / 180); // Convert to radians, upward spread
-    const speed = 80 + Math.random() * 120;
+  // Generate particles for celebration - burst up then fall like water drops
+  const particles = showCelebration ? Array.from({ length: 40 }, (_, i) => {
+    const burstHeight = 30 + Math.random() * 50; // How high they burst up (px)
+    const horizontalDrift = (Math.random() - 0.5) * 100; // Slight horizontal movement
     return {
       id: i,
-      x: Math.random() * 100, // % position across the bar
-      tx: Math.cos(angle) * speed, // final X offset
-      ty: Math.sin(angle) * speed, // final Y offset (negative = up)
-      size: 4 + Math.random() * 6,
-      color: ['bg-green-400', 'bg-green-500', 'bg-lime-400', 'bg-yellow-400', 'bg-emerald-400'][Math.floor(Math.random() * 5)],
-      delay: Math.random() * 0.2,
-      duration: 0.6 + Math.random() * 0.4,
+      x: Math.random() * 100, // % position across the screen
+      burstHeight,
+      horizontalDrift,
+      size: 6 + Math.random() * 8,
+      color: ['bg-lime-300', 'bg-lime-400', 'bg-yellow-300', 'bg-yellow-400', 'bg-amber-300'][Math.floor(Math.random() * 5)],
+      delay: Math.random() * 0.4, // Staggered start
+      duration: 1.5 + Math.random() * 1.0, // Total animation duration
     };
   }) : [];
 
@@ -251,12 +251,12 @@ export function Header() {
     </Popover>
   );
 
-  // Progress colors: red (0%) → amber (50%) → green (100%)
+  // Progress colors: red (0%) → amber (50%) → lime-yellow (100%)
   const percent = insights.percentComplete;
   const isGoalReached = percent >= 100;
 
   const getProgressBgColor = () => {
-    if (percent >= 100) return 'bg-green-500';
+    if (percent >= 100) return 'bg-lime-400';
     if (percent >= 75) return 'bg-lime-500';
     if (percent >= 50) return 'bg-amber-500';
     if (percent >= 25) return 'bg-orange-500';
@@ -264,7 +264,7 @@ export function Header() {
   };
 
   const getProgressTextColor = () => {
-    if (percent >= 100) return 'text-green-600';
+    if (percent >= 100) return 'text-lime-500';
     if (percent >= 75) return 'text-lime-600';
     if (percent >= 50) return 'text-amber-600';
     if (percent >= 25) return 'text-orange-600';
@@ -284,7 +284,7 @@ export function Header() {
                 </span>
                 <span className="text-muted-foreground">/ {settings.defaultGoal}g</span>
                 {isGoalReached && (
-                  <span className="ml-1 text-green-500 animate-bounce">🎉</span>
+                  <span className="ml-1 text-lime-500 animate-bounce">🎉</span>
                 )}
                 {!isGoalReached && insights.currentStreak > 0 && (
                   <span className="ml-1 text-orange-500 text-xs">🔥{insights.currentStreak}</span>
@@ -298,34 +298,35 @@ export function Header() {
         </div>
         {/* Progress bar for Coach page */}
         {isCoachPage && (
-          <div className="h-1 bg-gray-200 dark:bg-gray-700 relative overflow-visible">
+          <div className="h-1 bg-gray-200 dark:bg-gray-700">
             <div
-              className={`h-full transition-all duration-500 ${getProgressBgColor()} ${isGoalReached ? 'animate-pulse shadow-lg shadow-green-500/50' : ''}`}
+              className={`h-full transition-all duration-500 ${getProgressBgColor()} ${isGoalReached ? 'animate-pulse shadow-lg shadow-lime-400/50' : ''}`}
               style={{ width: `${Math.min(100, percent)}%` }}
             />
-            {/* Celebration particles */}
-            {showCelebration && (
-              <div className="absolute inset-0 overflow-visible pointer-events-none">
-                {particles.map((p) => (
-                  <div
-                    key={p.id}
-                    className={`absolute rounded-full ${p.color}`}
-                    style={{
-                      left: `${p.x}%`,
-                      bottom: 0,
-                      width: p.size,
-                      height: p.size,
-                      animation: `particle-burst ${p.duration}s ease-out ${p.delay}s forwards`,
-                      '--tx': `${p.tx}px`,
-                      '--ty': `${p.ty}px`,
-                    } as React.CSSProperties}
-                  />
-                ))}
-              </div>
-            )}
           </div>
         )}
       </header>
+
+      {/* Full-screen celebration particles - burst up then fall like water drops */}
+      {showCelebration && (
+        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+          {particles.map((p) => (
+            <div
+              key={p.id}
+              className={`absolute rounded-full ${p.color}`}
+              style={{
+                left: `${p.x}%`,
+                top: 60, // Start at header/progress bar level
+                width: p.size,
+                height: p.size,
+                animation: `particle-drop ${p.duration}s ease-in ${p.delay}s forwards`,
+                '--burst-height': `${p.burstHeight}px`,
+                '--drift': `${p.horizontalDrift}px`,
+              } as React.CSSProperties}
+            />
+          ))}
+        </div>
+      )}
 
       <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
         <AlertDialogContent>
