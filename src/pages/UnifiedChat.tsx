@@ -668,7 +668,20 @@ export function UnifiedChat() {
 
   // Delete logged food entry
   const handleDeleteLoggedFood = async (syncId: string) => {
+    // Soft delete in database
     await deleteFoodEntryBySyncId(syncId);
+
+    // Update message's embedded foodEntry to show cancelled state
+    const message = messages.find(m => m.foodEntrySyncId === syncId);
+    if (message?.foodEntry) {
+      updateMessage(message.syncId, {
+        foodEntry: {
+          ...message.foodEntry,
+          deletedAt: new Date(),
+        },
+      });
+    }
+
     triggerSync();
   };
 
@@ -710,9 +723,25 @@ export function UnifiedChat() {
           const foodEntry = message.foodEntry ||
             (message.foodEntrySyncId ? entriesBySyncId.get(message.foodEntrySyncId) : undefined);
 
-          if (foodEntry && message.foodEntrySyncId && !foodEntry.deletedAt) {
-            const isMPSHit = mpsHitSyncIds.has(message.foodEntrySyncId);
+          if (foodEntry && message.foodEntrySyncId) {
+            const isCancelled = !!foodEntry.deletedAt;
+            const isMPSHit = !isCancelled && mpsHitSyncIds.has(message.foodEntrySyncId);
             const entrySyncId = message.foodEntrySyncId;
+
+            // Cancelled entries show as non-interactive cards
+            if (isCancelled) {
+              return (
+                <div key={message.syncId} className="mb-3">
+                  <LoggedFoodCard
+                    entry={foodEntry}
+                    showCalories={settings.calorieTrackingEnabled}
+                    isMPSHit={false}
+                  />
+                </div>
+              );
+            }
+
+            // Active entries are swipeable
             return (
               <div key={message.syncId} className="mb-3">
                 <SwipeableRow
