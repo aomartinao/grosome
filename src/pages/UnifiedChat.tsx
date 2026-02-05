@@ -9,14 +9,12 @@ import { QuickLogShortcuts } from '@/components/chat/QuickLogShortcuts';
 import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
-import { ToastAction } from '@/components/ui/toast';
 import { useSettings, useRecentEntries } from '@/hooks/useProteinData';
 import { useProgressInsights } from '@/hooks/useProgressInsights';
-import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
 import { getNickname } from '@/lib/nicknames';
-import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange, hardDeleteFoodEntry } from '@/db';
+import { addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry, getEntriesForDateRange } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { getToday, calculateMPSHits, calculateMPSAnalysis, calculateCategoryBreakdown, triggerHaptic } from '@/lib/utils';
 import { refineAnalysis } from '@/services/ai/client';
@@ -44,7 +42,6 @@ export function UnifiedChat() {
   const { user } = useAuthStore();
   const insights = useProgressInsights();
   const nickname = getNickname(user?.email);
-  const { toast } = useToast();
 
   // Get food entries from recent days to build lookup map
   const recentEntries = useRecentEntries(CHAT_HISTORY_DAYS);
@@ -502,7 +499,7 @@ export function UnifiedChat() {
       updatedAt: now,
     };
 
-    const entryId = await addFoodEntry(foodEntry);
+    await addFoodEntry(foodEntry);
     triggerHaptic('success');
 
     // Show progress feedback animation
@@ -520,40 +517,8 @@ export function UnifiedChat() {
 
     triggerSync();
 
-    // Store pending state for potential undo
-    const previousPending = { ...pendingFood };
-
     setPendingFood(null);
     setShowQuickReplies([]);
-
-    // Show undo toast
-    toast({
-      title: `Logged ${analysis.foodName}`,
-      description: `+${analysis.protein}g protein`,
-      variant: 'success',
-      action: (
-        <ToastAction
-          altText="Undo"
-          onClick={async () => {
-            // Hard delete the entry (completely remove, not soft delete)
-            await hardDeleteFoodEntry(entryId);
-
-            // Remove foodEntry from message to hide LoggedFoodCard
-            updateMessage(messageSyncId, {
-              foodEntrySyncId: undefined,
-              foodEntry: undefined,
-            });
-
-            // Restore pending state so user can re-confirm
-            setPendingFood(previousPending);
-
-            triggerSync();
-          }}
-        >
-          Undo
-        </ToastAction>
-      ),
-    });
   };
 
   // Save inline edit to pending food

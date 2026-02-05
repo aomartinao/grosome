@@ -1,34 +1,22 @@
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/types';
-import { FoodCard } from './FoodCard';
 import { QuickReplies } from './QuickReplies';
 import { TypingIndicator } from './TypingIndicator';
 import { MarkdownText } from './MarkdownText';
 
 interface MessageBubbleProps {
   message: ChatMessage;
-  onConfirm?: (entry: ChatMessage['foodEntry']) => void;
-  onEdit?: (entry: ChatMessage['foodEntry']) => void;
-  onDelete?: (entry: ChatMessage['foodEntry']) => void;
-  onCancel?: (entry: ChatMessage['foodEntry']) => void;
   onQuickReply?: (reply: string) => void;
-  showCalories?: boolean;
   isLatestMessage?: boolean;
 }
 
 export function MessageBubble({
   message,
-  onConfirm,
-  onEdit,
-  onDelete,
-  onCancel,
   onQuickReply,
-  showCalories,
   isLatestMessage,
 }: MessageBubbleProps) {
   const isUser = message.type === 'user';
-  const isConfirmed = !!message.foodEntrySyncId;
 
   // Get images array (support both legacy imageData and new images array)
   const messageImages = message.images || (message.imageData ? [message.imageData] : []);
@@ -96,19 +84,6 @@ export function MessageBubble({
                   <AlertCircle className="h-4 w-4 inline-block mr-1.5 -mt-0.5" />
                 )}
                 <MarkdownText>{message.content}</MarkdownText>
-              </div>
-            )}
-            {message.foodEntry && (
-              <div className={message.content ? 'mt-2' : ''}>
-                <FoodCard
-                  entry={message.foodEntry}
-                  onConfirm={() => onConfirm?.(message.foodEntry)}
-                  onEdit={() => onEdit?.(message.foodEntry)}
-                  onDelete={() => onDelete?.(message.foodEntry)}
-                  onCancel={() => onCancel?.(message.foodEntry)}
-                  showCalories={showCalories}
-                  isConfirmed={isConfirmed}
-                />
               </div>
             )}
             {showQuickReplies && onQuickReply && (
