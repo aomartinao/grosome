@@ -4,8 +4,11 @@ import { createClient, type SupabaseClient, type User, type Session } from '@sup
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-// Admin email for auto-promotion
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL as string || 'martin.holecko@gmail.com';
+// Admin email for auto-promotion (must be set via environment variable)
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL as string;
+if (!ADMIN_EMAIL) {
+  console.warn('[Admin] VITE_ADMIN_EMAIL not configured - admin auto-promotion disabled');
+}
 
 // Create Supabase client
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
