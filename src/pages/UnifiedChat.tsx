@@ -33,8 +33,9 @@ interface PendingFood {
   imageData?: string;
 }
 
-// Show messages from the last week, auto-cleanup older ones
-const CHAT_HISTORY_DAYS = 7;
+// Chat history retention settings
+const CHAT_HISTORY_DAYS = 14;  // Display window: 2 weeks for weekly wrap-ups
+const CHAT_CLEANUP_DAYS = 21;  // Local cleanup: 3 weeks (buffer for offline use)
 
 export function UnifiedChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -108,9 +109,15 @@ export function UnifiedChat() {
     loadMessages();
   }, [loadMessages]);
 
-  // Cleanup old messages on mount (older than 1 week)
+  // Cleanup old messages (throttled to once per day)
   useEffect(() => {
-    cleanupOldChatMessages(CHAT_HISTORY_DAYS);
+    const lastCleanup = localStorage.getItem('lastChatCleanup');
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+
+    if (!lastCleanup || parseInt(lastCleanup) < oneDayAgo) {
+      cleanupOldChatMessages(CHAT_CLEANUP_DAYS);
+      localStorage.setItem('lastChatCleanup', Date.now().toString());
+    }
   }, []);
 
   // Build context for AI
