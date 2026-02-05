@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { DietaryPreferences } from '@/types';
+import type { DietaryPreferences, SleepQuality, MuscleGroup } from '@/types';
 import type { ProgressInsights } from '@/hooks/useProgressInsights';
 import { sendProxyRequest, parseProxyResponse, type ProxyMessageContent } from './proxy';
 
@@ -38,6 +38,36 @@ export interface CategoryBreakdown {
   other: number;
 }
 
+// Sleep context for coaching
+export interface SleepContext {
+  sleepLastNight?: number;      // minutes
+  sleepAvg7Days?: number;       // minutes
+  sleepGoal?: number;           // minutes
+}
+
+// Training context for coaching
+export interface TrainingContext {
+  trainingSessions7Days?: number;
+  trainingGoalPerWeek?: number;
+  daysSinceLastTraining?: number;
+  lastMuscleGroup?: MuscleGroup;
+}
+
+// Sleep analysis from AI response
+export interface SleepAnalysis {
+  duration: number;             // minutes
+  bedtime?: string;             // HH:mm
+  wakeTime?: string;            // HH:mm
+  quality?: SleepQuality;
+}
+
+// Training analysis from AI response
+export interface TrainingAnalysis {
+  muscleGroup: MuscleGroup;
+  duration?: number;            // minutes
+  notes?: string;
+}
+
 export interface UnifiedContext {
   goal: number;
   consumed: number;
@@ -56,6 +86,10 @@ export interface UnifiedContext {
   preferencesSource?: 'settings' | 'conversation' | 'none';
   unknownPreferences?: string[];
   askedPreferenceThisSession?: boolean;
+
+  // GRRROMODE: Sleep & Training context
+  sleepContext?: SleepContext;
+  trainingContext?: TrainingContext;
 }
 
 export interface UnifiedMessage {
@@ -68,6 +102,8 @@ export type MessageIntent =
   | 'log_food'
   | 'correct_food'
   | 'analyze_menu'
+  | 'log_sleep'
+  | 'log_training'
   | 'question'
   | 'greeting'
   | 'preference_update'
@@ -84,7 +120,11 @@ export type CoachingType =
   | 'pacing'
   | 'celebration'
   | 'tip'
-  | 'preference_question';
+  | 'preference_question'
+  | 'sleep_tip'
+  | 'sleep_celebration'
+  | 'training_progress'
+  | 'rest_day_reminder';
 
 export interface FoodAnalysis {
   foodName: string;
@@ -138,6 +178,10 @@ export interface UnifiedResponse {
 
   // For preference learning
   learnedPreferences?: Partial<DietaryPreferences>;
+
+  // GRRROMODE: Sleep & Training analysis
+  sleepAnalysis?: SleepAnalysis;
+  trainingAnalysis?: TrainingAnalysis;
 }
 
 function buildUnifiedSystemPrompt(context: UnifiedContext): string {
@@ -152,6 +196,8 @@ function buildUnifiedSystemPrompt(context: UnifiedContext): string {
     lastLoggedEntry,
     mpsAnalysis,
     todayByCategory,
+    sleepContext,
+    trainingContext,
   } = context;
 
   const hour = currentTime.getHours();
@@ -202,6 +248,30 @@ function buildUnifiedSystemPrompt(context: UnifiedContext): string {
   // Next MPS hit number for prompt
   const nextMpsHit = (mpsAnalysis?.hitsToday ?? 0) + 1;
 
+  // Sleep context info
+  const formatMinutesAsHours = (m: number) => {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    return min > 0 ? `${h}h ${min}min` : `${h}h`;
+  };
+  const sleepInfo = sleepContext
+    ? [
+        sleepContext.sleepLastNight != null ? `LAST NIGHT: ${formatMinutesAsHours(sleepContext.sleepLastNight)}` : '',
+        sleepContext.sleepAvg7Days != null ? `7-DAY AVG: ${formatMinutesAsHours(sleepContext.sleepAvg7Days)}` : '',
+        sleepContext.sleepGoal != null ? `GOAL: ${formatMinutesAsHours(sleepContext.sleepGoal)}` : '',
+      ].filter(Boolean).join(' | ')
+    : '';
+
+  // Training context info
+  const trainingInfo = trainingContext
+    ? [
+        trainingContext.trainingSessions7Days != null ? `SESSIONS THIS WEEK: ${trainingContext.trainingSessions7Days}` : '',
+        trainingContext.trainingGoalPerWeek != null ? `GOAL: ${trainingContext.trainingGoalPerWeek}/week` : '',
+        trainingContext.daysSinceLastTraining != null ? `DAYS SINCE LAST: ${trainingContext.daysSinceLastTraining}` : '',
+        trainingContext.lastMuscleGroup ? `LAST: ${trainingContext.lastMuscleGroup}` : '',
+      ].filter(Boolean).join(' | ')
+    : '';
+
   return `You are ${name}'s protein coach. You help log food AND answer nutrition questions.
 
 ## FIRST: Is this a QUESTION or FOOD?
@@ -231,7 +301,9 @@ FOOD indicators (use intent "log_food"):
 | Correcting previous entry | correct_food | "actually it was 3 eggs", "make that 150g" |
 | Restaurant menu photo | analyze_menu | [image of menu] |
 | Sharing dietary info | preference_update | "I'm vegan", "allergic to nuts" |
-| Greeting/chitchat | greeting | "hi", "thanks" |
+| Greeting/chitchat | greeting | "hi", "thanks" |${sleepContext ? `
+| Sleep logging | log_sleep | "spal jsem 7 hodin", "šel jsem spát v 11", "dneska jen 5 hodin spánku" |` : ''}${trainingContext ? `
+| Training logging | log_training | "dělal jsem nohy", "byl jsem v gymu na push", "rest day", "cardio 30 minut" |` : ''}
 
 ## RESPONSE FORMAT
 
@@ -336,7 +408,62 @@ When user sends a **menu photo**, provide personalized recommendations based on:
 }
 \`\`\`
 
-## COACHING TRIGGERS (for log_food intent)
+${sleepContext ? `### IF the message describes SLEEP → use this format:
+
+The user may describe sleep in Czech or English. Extract duration, bedtime, wake time, and quality.
+- "spal jsem 7 hodin" → duration: 420
+- "šel jsem spát v 11, vstal v 7" → duration: 480, bedtime: "23:00", wakeTime: "07:00"
+- "dneska jen 5 hodin spánku" → duration: 300
+- Quality: infer from context — "spal jsem skvěle" → "great", "špatně jsem spal" → "poor"
+
+\`\`\`json
+{
+  "intent": "log_sleep",
+  "sleep": {
+    "duration": 420,
+    "bedtime": "23:00",
+    "wakeTime": "06:00",
+    "quality": "good"
+  },
+  "acknowledgment": "7 hodin, solid!",
+  "message": "Nice rest! That's right around your goal."
+}
+\`\`\`
+
+Quality values: "poor" | "fair" | "good" | "great" (omit if unclear)
+Duration is ALWAYS in minutes.
+` : ''}${trainingContext ? `### IF the message describes TRAINING → use this format:
+
+The user may describe training in Czech or English. Extract muscle group, duration, and notes.
+- "dělal jsem nohy" → muscleGroup: "legs"
+- "byl jsem v gymu na push" → muscleGroup: "push"
+- "rest day" → muscleGroup: "rest"
+- "cardio 30 minut" → muscleGroup: "cardio", duration: 30
+
+Muscle group mapping:
+- push/bench/shoulders/chest/triceps → "push"
+- pull/back/biceps/rows → "pull"
+- legs/squat/nohy → "legs"
+- full body/celé tělo → "full_body"
+- cardio/běh/running/cycling → "cardio"
+- rest/volno/rest day → "rest"
+- anything else → "other"
+
+\`\`\`json
+{
+  "intent": "log_training",
+  "training": {
+    "muscleGroup": "legs",
+    "duration": 60,
+    "notes": "squats and leg press"
+  },
+  "acknowledgment": "Legs day! 💪",
+  "message": "Nice session — that's 3 workouts this week."
+}
+\`\`\`
+
+Duration in minutes (omit if not mentioned). Notes are optional free-form.
+` : ''}## COACHING TRIGGERS (for log_food intent)
 
 When logging food, check these conditions and ADD a coaching message:
 
@@ -351,6 +478,24 @@ When logging food, check these conditions and ADD a coaching message:
 | ${dominantCategory || 'one category'} accounts for >60% of today's protein | variety_nudge | "Lots of ${dominantCategory || 'one source'} today — try mixing sources for better aminos." |
 
 **IMPORTANT: Include coaching when conditions match. Don't skip it.**
+${sleepContext ? `
+## COACHING TRIGGERS (for log_sleep intent)
+
+| Condition | Type | Message |
+|-----------|------|---------|
+| duration >= sleepGoal | sleep_celebration | "Great rest! You hit your sleep goal." |
+| duration < sleepGoal * 0.75 | sleep_tip | "That's short — try winding down earlier tonight." |
+| sleepAvg7Days < sleepGoal | sleep_tip | "Your 7-day average is below target. Consistency helps!" |
+` : ''}${trainingContext ? `
+## COACHING TRIGGERS (for log_training intent)
+
+| Condition | Type | Message |
+|-----------|------|---------|
+| trainingSessions7Days >= trainingGoalPerWeek | training_progress | "Goal reached! X sessions this week." |
+| muscleGroup === lastMuscleGroup AND muscleGroup !== 'cardio' | rest_day_reminder | "Same group 2 days in a row — consider alternating for recovery." |
+| daysSinceLastTraining >= 3 | training_progress | "Welcome back! X days since last session." |
+| muscleGroup === 'rest' | rest_day_reminder | "Rest days are gains days. Recover well!" |
+` : ''}
 
 ## CONTEXT (SOURCE OF TRUTH)
 
@@ -366,6 +511,8 @@ ${sleepTime ? `SLEEP TIME: ~${sleepTime} (${hoursUntilSleep}h away)` : ''}
 ${mpsInfo}
 ${categoryInfo}
 ${lastEntryInfo}
+${sleepInfo ? `SLEEP: ${sleepInfo}` : ''}
+${trainingInfo ? `TRAINING: ${trainingInfo}` : ''}
 ${restrictionsList ? `DIETARY: ${restrictionsList}` : ''}
 
 ## KNOWLEDGE BASE (for questions)
@@ -573,6 +720,41 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
           consumedAt,
         },
         correctsPreviousEntry: true,
+        coaching: parsed.coaching,
+        quickReplies: parsed.quickReplies,
+      };
+    }
+
+    // Handle sleep logging
+    if (parsed.intent === 'log_sleep' && parsed.sleep) {
+      const displayMessage = parsed.message || parsed.acknowledgment || 'Logged!';
+      return {
+        intent: 'log_sleep',
+        acknowledgment: parsed.acknowledgment || displayMessage,
+        message: displayMessage,
+        sleepAnalysis: {
+          duration: parsed.sleep.duration,
+          bedtime: parsed.sleep.bedtime,
+          wakeTime: parsed.sleep.wakeTime,
+          quality: parsed.sleep.quality,
+        },
+        coaching: parsed.coaching,
+        quickReplies: parsed.quickReplies,
+      };
+    }
+
+    // Handle training logging
+    if (parsed.intent === 'log_training' && parsed.training) {
+      const displayMessage = parsed.message || parsed.acknowledgment || 'Logged!';
+      return {
+        intent: 'log_training',
+        acknowledgment: parsed.acknowledgment || displayMessage,
+        message: displayMessage,
+        trainingAnalysis: {
+          muscleGroup: parsed.training.muscleGroup,
+          duration: parsed.training.duration,
+          notes: parsed.training.notes,
+        },
         coaching: parsed.coaching,
         quickReplies: parsed.quickReplies,
       };
