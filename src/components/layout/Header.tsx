@@ -113,6 +113,8 @@ export function Header() {
         return 'Coach';
       case '/history':
         return 'History';
+      case '/reports':
+        return 'Reports';
       case '/settings':
         return 'Settings';
       default:

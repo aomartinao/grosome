@@ -95,8 +95,7 @@ export function Reports() {
   return (
     <div className="flex flex-col gap-4 px-4 py-4 pb-28">
       {/* Time Range Toggle */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Reports</h2>
+      <div className="flex items-center justify-end">
         <div className="flex rounded-xl bg-muted p-1">
           {([7, 30] as const).map((range) => (
             <button

@@ -329,6 +329,22 @@ export function UnifiedChat() {
     }
   }, [checkIfAtBottom]);
 
+  // iOS keyboard: scroll to bottom when virtual keyboard opens/resizes
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handleResize = () => {
+      // When keyboard opens, viewport shrinks — scroll to keep content visible
+      if (isAtBottomRef.current) {
+        requestAnimationFrame(() => scrollToBottom(true));
+      }
+    };
+
+    vv.addEventListener('resize', handleResize);
+    return () => vv.removeEventListener('resize', handleResize);
+  }, [scrollToBottom]);
+
   // Scroll on messages change - instant on first load, smart after
   useEffect(() => {
     if (!messagesLoaded) return;
