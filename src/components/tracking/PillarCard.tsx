@@ -44,9 +44,9 @@ export function PillarCard({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <p className="text-xs text-muted-foreground font-medium">{title}</p>
-        <div className="flex items-baseline gap-1">
+        <div className="flex items-baseline gap-1 whitespace-nowrap">
           <span className="text-lg font-bold leading-tight">{current}</span>
-          <span className="text-xs text-muted-foreground">/ {goal}{unit && ` ${unit}`}</span>
+          <span className="text-xs text-muted-foreground truncate">/ {goal}{unit && ` ${unit}`}</span>
         </div>
         {subtitle && (
           <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{subtitle}</p>
