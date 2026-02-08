@@ -19,7 +19,7 @@ import { getNickname } from '@/lib/nicknames';
 import {
   addFoodEntry, deleteFoodEntryBySyncId, cleanupOldChatMessages, updateFoodEntry,
   getEntriesForDateRange, setDailyGoal,
-  addSleepEntry, getSleepAverageForDays, getLastSleepEntry,
+  addSleepEntry, updateSleepEntry, getSleepAverageForDays, getLastSleepEntry, getSleepEntriesForDate,
   addTrainingEntry, getTrainingSessions7Days, getDaysSinceLastTraining,
 } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
@@ -47,6 +47,8 @@ interface PendingFood {
 interface PendingSleep {
   messageSyncId: string;
   analysis: SleepAnalysis;
+  isCorrection?: boolean;
+  targetDate?: string;         // YYYY-MM-DD for past-day entries
 }
 
 interface PendingTraining {
@@ -489,6 +491,8 @@ export function UnifiedChat() {
         setPendingSleep({
           messageSyncId: loadingSyncId,
           analysis: result.sleepAnalysis,
+          isCorrection: result.sleepAnalysis.correction,
+          targetDate: result.sleepAnalysis.targetDate,
         });
 
         if (result.quickReplies) {
@@ -664,21 +668,60 @@ export function UnifiedChat() {
   const handleConfirmSleep = async () => {
     if (!pendingSleep) return;
 
-    const { analysis, messageSyncId } = pendingSleep;
+    const { analysis, messageSyncId, isCorrection, targetDate } = pendingSleep;
     const now = new Date();
+    const entryDate = targetDate || getToday();
 
-    const sleepEntry = {
-      date: getToday(),
-      duration: analysis.duration,
-      bedtime: analysis.bedtime,
-      wakeTime: analysis.wakeTime,
-      quality: analysis.quality,
-      source: 'manual' as const,
-      createdAt: now,
-      updatedAt: now,
-    };
+    let sleepEntry;
 
-    await addSleepEntry(sleepEntry);
+    if (isCorrection) {
+      // Find the most recent sleep entry for the target date and update it
+      const existingEntries = await getSleepEntriesForDate(entryDate);
+      const existingEntry = existingEntries[existingEntries.length - 1];
+
+      if (existingEntry?.id) {
+        await updateSleepEntry(existingEntry.id, {
+          duration: analysis.duration,
+          bedtime: analysis.bedtime,
+          wakeTime: analysis.wakeTime,
+          quality: analysis.quality,
+        });
+        sleepEntry = {
+          ...existingEntry,
+          duration: analysis.duration,
+          bedtime: analysis.bedtime,
+          wakeTime: analysis.wakeTime,
+          quality: analysis.quality,
+          updatedAt: now,
+        };
+      } else {
+        // No existing entry to correct — create new
+        sleepEntry = {
+          date: entryDate,
+          duration: analysis.duration,
+          bedtime: analysis.bedtime,
+          wakeTime: analysis.wakeTime,
+          quality: analysis.quality,
+          source: 'manual' as const,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await addSleepEntry(sleepEntry);
+      }
+    } else {
+      // Normal new entry
+      sleepEntry = {
+        date: entryDate,
+        duration: analysis.duration,
+        bedtime: analysis.bedtime,
+        wakeTime: analysis.wakeTime,
+        quality: analysis.quality,
+        source: 'manual' as const,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await addSleepEntry(sleepEntry);
+    }
 
     triggerHaptic('success');
     triggerSync();
