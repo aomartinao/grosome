@@ -65,36 +65,34 @@ export async function isAdmin(user: User): Promise<boolean> {
   return !!data;
 }
 
-// Get all users with stats
+// Get all users with stats (via admin-only RPC function)
 export async function getUserStats(): Promise<UserStats[]> {
-  const { data, error } = await supabase
-    .from('user_stats')
-    .select('*')
-    .order('signed_up_at', { ascending: false });
+  const { data, error } = await supabase.rpc('admin_get_user_stats');
 
   if (error) {
     console.error('Error fetching user stats:', error);
     throw error;
   }
 
-  return data || [];
+  // Sort by signed_up_at descending (RPC doesn't support .order())
+  const stats = (data || []) as UserStats[];
+  stats.sort((a, b) => new Date(b.signed_up_at).getTime() - new Date(a.signed_up_at).getTime());
+  return stats;
 }
 
-// Get single user stats
+// Get single user stats (via admin-only RPC function)
 export async function getUserById(userId: string): Promise<UserStats | null> {
-  const { data, error } = await supabase
-    .from('user_stats')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
+  const { data, error } = await supabase.rpc('admin_get_user_by_id', {
+    target_user_id: userId,
+  });
 
   if (error) {
-    if (error.code === 'PGRST116') return null;
     console.error('Error fetching user:', error);
     throw error;
   }
 
-  return data;
+  const rows = data as UserStats[] | null;
+  return rows && rows.length > 0 ? rows[0] : null;
 }
 
 // Get API usage for a user
