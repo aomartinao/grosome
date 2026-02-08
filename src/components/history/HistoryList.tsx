@@ -1,23 +1,37 @@
 import { useMemo, useState, useCallback } from 'react';
 import { format, parseISO } from 'date-fns';
-import { CheckCircle, Dumbbell } from 'lucide-react';
+import { CheckCircle, Dumbbell, Moon } from 'lucide-react';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { refineAnalysis } from '@/services/ai/client';
 import { useSettings } from '@/hooks/useProteinData';
 import { calculateMPSHits } from '@/lib/utils';
-import type { FoodEntry, DailyStats, ConfidenceLevel } from '@/types';
+import { cn } from '@/lib/utils';
+import type { FoodEntry, SleepEntry, TrainingEntry, DailyStats, ConfidenceLevel, MuscleGroup } from '@/types';
+
+const muscleGroupLabels: Record<MuscleGroup, string> = {
+  push: 'Push',
+  pull: 'Pull',
+  legs: 'Legs',
+  full_body: 'Full Body',
+  cardio: 'Cardio',
+  rest: 'Rest Day',
+  other: 'Other',
+};
 
 interface HistoryListProps {
   entries: FoodEntry[];
+  sleepEntries?: SleepEntry[];
+  trainingEntries?: TrainingEntry[];
   goals: Map<string, number>;
   defaultGoal: number;
   calorieTrackingEnabled?: boolean;
+  sleepGoalMinutes?: number;
   onDelete: (id: number) => void;
   onEdit?: (entry: FoodEntry) => void;
 }
 
-export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnabled, onDelete, onEdit }: HistoryListProps) {
+export function HistoryList({ entries, sleepEntries = [], trainingEntries = [], goals, defaultGoal, calorieTrackingEnabled, sleepGoalMinutes, onDelete, onEdit }: HistoryListProps) {
   const { settings } = useSettings();
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
 
@@ -65,6 +79,28 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
     }
   }, [settings.claudeApiKey, settings.hasAdminApiKey]);
 
+  // Group sleep entries by date
+  const sleepByDate = useMemo(() => {
+    const map = new Map<string, SleepEntry[]>();
+    for (const entry of sleepEntries) {
+      const arr = map.get(entry.date) || [];
+      arr.push(entry);
+      map.set(entry.date, arr);
+    }
+    return map;
+  }, [sleepEntries]);
+
+  // Group training entries by date
+  const trainingByDate = useMemo(() => {
+    const map = new Map<string, TrainingEntry[]>();
+    for (const entry of trainingEntries) {
+      const arr = map.get(entry.date) || [];
+      arr.push(entry);
+      map.set(entry.date, arr);
+    }
+    return map;
+  }, [trainingEntries]);
+
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, DailyStats>();
 
@@ -92,7 +128,29 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
       stats.goalMet = stats.totalProtein >= stats.goal;
     }
 
-    const result = Array.from(groups.values());
+    // Ensure dates with only sleep/training entries also appear
+    const allDates = new Set([
+      ...groups.keys(),
+      ...sleepByDate.keys(),
+      ...trainingByDate.keys(),
+    ]);
+    for (const date of allDates) {
+      if (!groups.has(date)) {
+        const goal = goals.get(date) || defaultGoal;
+        groups.set(date, {
+          date,
+          totalProtein: 0,
+          totalCalories: 0,
+          goal,
+          entries: [],
+          goalMet: false,
+        });
+      }
+    }
+
+    const result = Array.from(groups.values()).sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
     for (const day of result) {
       day.entries.sort((a, b) => {
         const timeA = new Date(a.consumedAt || a.createdAt).getTime();
@@ -102,7 +160,7 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
     }
 
     return result;
-  }, [entries, goals, defaultGoal]);
+  }, [entries, goals, defaultGoal, sleepByDate, trainingByDate]);
 
   // Calculate MPS hits for all entries to mark them with an icon
   const mpsHitIds = useMemo(() => {
@@ -121,7 +179,7 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
 
   const hasAIAccess = !!(settings.claudeApiKey || settings.hasAdminApiKey);
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && sleepEntries.length === 0 && trainingEntries.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <p className="text-muted-foreground">No entries yet</p>
@@ -157,7 +215,52 @@ export function HistoryList({ entries, goals, defaultGoal, calorieTrackingEnable
               </div>
             </div>
 
-            {/* Entries */}
+            {/* Sleep entries for this day */}
+            {sleepByDate.get(day.date)?.map((se) => (
+              <div key={`sleep-${se.id}`} className="flex items-center gap-3 p-2.5">
+                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+                  <Moon className="h-4 w-4 text-indigo-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Sleep</p>
+                  <p className="text-xs text-muted-foreground">
+                    {se.bedtime && se.wakeTime ? `${se.bedtime} → ${se.wakeTime}` : se.quality || ''}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <span className="text-sm font-semibold text-indigo-500">
+                    {Math.floor(se.duration / 60)}h{se.duration % 60 > 0 ? ` ${se.duration % 60}m` : ''}
+                  </span>
+                  {sleepGoalMinutes && (
+                    <p className={cn('text-[10px] font-medium', se.duration >= sleepGoalMinutes ? 'text-green-600' : 'text-amber-600')}>
+                      {se.duration >= sleepGoalMinutes ? 'Goal met' : `Goal: ${Math.floor(sleepGoalMinutes / 60)}h`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Training entries for this day */}
+            {trainingByDate.get(day.date)?.map((te) => (
+              <div key={`training-${te.id}`} className="flex items-center gap-3 p-2.5">
+                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <Dumbbell className="h-4 w-4 text-emerald-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Training</p>
+                  <p className="text-xs text-muted-foreground">
+                    {te.notes || (te.duration ? `${te.duration} min` : '')}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <span className={cn('text-xs font-medium px-1.5 py-0.5 rounded-full', te.muscleGroup ? 'text-emerald-600 bg-emerald-50' : '')}>
+                    {te.muscleGroup ? muscleGroupLabels[te.muscleGroup] : ''}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {/* Food entries */}
             <div className="space-y-1.5">
               {day.entries.map((entry) => (
                 <SwipeableRow

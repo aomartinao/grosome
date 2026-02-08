@@ -36,6 +36,57 @@ export function SleepLogCard({
   const quality = entry.quality ? qualityConfig[entry.quality] : null;
   const meetsGoal = sleepGoalMinutes ? duration >= sleepGoalMinutes : null;
 
+  // Compact confirmed card (like LoggedFoodCard)
+  if (isConfirmed) {
+    const timeRange = entry.bedtime && entry.wakeTime
+      ? `${entry.bedtime} → ${entry.wakeTime}`
+      : entry.bedtime
+      ? `Bedtime: ${entry.bedtime}`
+      : entry.wakeTime
+      ? `Wake: ${entry.wakeTime}`
+      : null;
+
+    return (
+      <div className="bg-card rounded-xl p-3 shadow-sm border border-border/50 overflow-hidden">
+        <div className="flex items-center gap-3">
+          {/* Icon badge */}
+          <div className="w-12 h-12 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+            <Moon className="h-5 w-5 text-indigo-500" />
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <span className="font-medium text-sm">Sleep</span>
+            <div className="flex items-center gap-2 mt-0.5">
+              {timeRange && (
+                <span className="text-xs text-muted-foreground">{timeRange}</span>
+              )}
+              {quality && (
+                <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', quality.color)}>
+                  {quality.label}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Duration + status */}
+          <div className="text-right flex-shrink-0">
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+              <span className="font-semibold text-indigo-500">{formatDuration(duration)}</span>
+            </div>
+            {meetsGoal !== null && (
+              <span className={cn('text-[10px] font-medium', meetsGoal ? 'text-green-600' : 'text-amber-600')}>
+                {meetsGoal ? 'Goal met' : `Goal: ${formatDuration(sleepGoalMinutes!)}`}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Pending card (full size with confirm/cancel)
   return (
     <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50 overflow-hidden">
       {/* Header */}
@@ -79,38 +130,28 @@ export function SleepLogCard({
       )}
 
       {/* Actions - pending */}
-      {!isConfirmed && (
-        <div className="flex gap-2 mt-4">
-          {onCancel && (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-10 px-3 rounded-xl text-muted-foreground"
-              onClick={onCancel}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
+      <div className="flex gap-2 mt-4">
+        {onCancel && (
           <Button
             type="button"
             size="sm"
-            className="flex-1 h-10 rounded-xl"
-            onClick={onConfirm}
+            variant="ghost"
+            className="h-10 px-3 rounded-xl text-muted-foreground"
+            onClick={onCancel}
           >
-            <Check className="h-4 w-4 mr-1.5" />
-            Confirm
+            <X className="h-4 w-4" />
           </Button>
-        </div>
-      )}
-
-      {/* Confirmed state */}
-      {isConfirmed && (
-        <div className="flex items-center gap-1.5 mt-4 text-green-600 text-sm">
-          <CheckCircle className="h-4 w-4" />
-          <span className="font-medium">Logged</span>
-        </div>
-      )}
+        )}
+        <Button
+          type="button"
+          size="sm"
+          className="flex-1 h-10 rounded-xl"
+          onClick={onConfirm}
+        >
+          <Check className="h-4 w-4 mr-1.5" />
+          Confirm
+        </Button>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { HistoryList } from '@/components/history/HistoryList';
 import { WeeklyChart } from '@/components/history/WeeklyChart';
 import { CalendarView } from '@/components/history/CalendarView';
 import { useRecentEntries, useDeleteEntry, useDailyGoals, useSettings } from '@/hooks/useProteinData';
+import { useRecentSleepEntries, useRecentTrainingEntries } from '@/hooks/useTrackingData';
 import { updateFoodEntry } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,8 @@ export function History() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
   const entries = useRecentEntries(180); // Extended to 6 months for navigation
+  const sleepEntries = useRecentSleepEntries(180);
+  const trainingEntries = useRecentTrainingEntries(180);
   const deleteEntry = useDeleteEntry();
   const dailyGoals = useDailyGoals();
   const { settings } = useSettings();
@@ -123,9 +126,12 @@ export function History() {
         {activeTab === 'list' && (
           <HistoryList
             entries={entries}
+            sleepEntries={settings.sleepTrackingEnabled ? sleepEntries : []}
+            trainingEntries={settings.trainingTrackingEnabled ? trainingEntries : []}
             goals={dailyGoals}
             defaultGoal={settings.defaultGoal}
             calorieTrackingEnabled={settings.calorieTrackingEnabled}
+            sleepGoalMinutes={settings.sleepGoalMinutes}
             onDelete={deleteEntry}
             onEdit={handleEdit}
           />
