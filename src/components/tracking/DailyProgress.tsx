@@ -49,8 +49,8 @@ interface DailyProgressProps {
   trainingTrackingEnabled?: boolean;
   sleepGoalMinutes?: number;
   trainingGoalPerWeek?: number;
-  todaySleepMinutes?: number;
-  weekTrainingSessions?: number;
+  dateSleepMinutes?: number;
+  dateTrainingSessions?: number;
   streak: StreakInfo;
   selectedDate: Date;
   isToday: boolean;
@@ -71,8 +71,8 @@ export function DailyProgress({
   trainingTrackingEnabled,
   sleepGoalMinutes = 480,
   trainingGoalPerWeek = 4,
-  todaySleepMinutes = 0,
-  weekTrainingSessions = 0,
+  dateSleepMinutes = 0,
+  dateTrainingSessions = 0,
   streak,
   selectedDate,
   isToday,
@@ -262,8 +262,8 @@ export function DailyProgress({
 
       </div>
 
-      {/* Pillar Cards - Sleep & Training (Today only) */}
-      {isToday && (sleepTrackingEnabled || trainingTrackingEnabled) && (
+      {/* Pillar Cards - Sleep & Training */}
+      {(sleepTrackingEnabled || trainingTrackingEnabled) && (
         <div className="grid grid-cols-2 gap-3 px-4 mt-3">
           {sleepTrackingEnabled && (
             <PillarCard
@@ -271,11 +271,11 @@ export function DailyProgress({
               iconColor="text-blue-500"
               iconBgColor="bg-blue-500/15"
               title="Sleep"
-              current={`${Math.floor(todaySleepMinutes / 60)}h${todaySleepMinutes % 60 > 0 ? ` ${todaySleepMinutes % 60}m` : ''}`}
+              current={`${Math.floor(dateSleepMinutes / 60)}h${dateSleepMinutes % 60 > 0 ? ` ${dateSleepMinutes % 60}m` : ''}`}
               goal={`${Math.floor(sleepGoalMinutes / 60)}h`}
-              subtitle="last night"
-              isGoalMet={todaySleepMinutes >= sleepGoalMinutes}
-              onClick={() => navigate('/coach')}
+              subtitle={isToday ? 'last night' : format(selectedDate, 'MMM d')}
+              isGoalMet={dateSleepMinutes >= sleepGoalMinutes}
+              onClick={isToday ? () => navigate('/coach') : undefined}
             />
           )}
           {trainingTrackingEnabled && (
@@ -284,12 +284,12 @@ export function DailyProgress({
               iconColor="text-emerald-500"
               iconBgColor="bg-emerald-500/15"
               title="Training"
-              current={`${weekTrainingSessions}`}
-              goal={`${trainingGoalPerWeek}`}
-              unit="sessions"
-              subtitle="this week"
-              isGoalMet={weekTrainingSessions >= trainingGoalPerWeek}
-              onClick={() => navigate('/coach')}
+              current={`${dateTrainingSessions}`}
+              goal={isToday ? `${trainingGoalPerWeek}` : '1'}
+              unit={isToday ? 'sessions' : (dateTrainingSessions === 1 ? 'session' : 'sessions')}
+              subtitle={isToday ? 'this week' : format(selectedDate, 'MMM d')}
+              isGoalMet={isToday ? dateTrainingSessions >= trainingGoalPerWeek : dateTrainingSessions > 0}
+              onClick={isToday ? () => navigate('/coach') : undefined}
             />
           )}
         </div>
