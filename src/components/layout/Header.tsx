@@ -116,7 +116,7 @@ export function Header() {
       case '/settings':
         return 'Settings';
       default:
-        return 'Protee';
+        return 'Grrromode';
     }
   };
 
@@ -198,7 +198,7 @@ export function Header() {
       <PopoverTrigger asChild>
         <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <Target className="h-6 w-6 text-amber-500" />
-          <span className="text-xl font-semibold text-foreground">Protee</span>
+          <span className="text-xl font-semibold text-foreground">Grrromode</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72" align="start">
@@ -206,7 +206,7 @@ export function Header() {
           <div className="flex items-center gap-2">
             <Target className="h-6 w-6 text-amber-500" />
             <div>
-              <h4 className="font-semibold">Protee</h4>
+              <h4 className="font-semibold">Grrromode</h4>
               <p className="text-xs text-muted-foreground">v{version}</p>
             </div>
           </div>

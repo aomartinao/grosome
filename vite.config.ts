@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Protee - Protein Tracker',
-        short_name: 'Protee',
+        name: 'Grrromode',
+        short_name: 'Grrromode',
         description: 'Track your daily protein intake with AI-powered food analysis',
         theme_color: '#f59e0b',
         background_color: '#ffffff',
