@@ -59,6 +59,8 @@ export interface SleepAnalysis {
   bedtime?: string;             // HH:mm
   wakeTime?: string;            // HH:mm
   quality?: SleepQuality;
+  correction?: boolean;         // true when user wants to fix/update a previous entry
+  targetDate?: string;          // YYYY-MM-DD when user specifies a past date
 }
 
 // Training analysis from AI response
@@ -416,6 +418,29 @@ The user may describe sleep in Czech or English. Extract duration, bedtime, wake
 - "dneska jen 5 hodin spánku" → duration: 300
 - Quality: infer from context — "spal jsem skvěle" → "great", "špatně jsem spal" → "poor"
 
+#### CORRECTION detection
+If the user wants to FIX/CORRECT/UPDATE a previous sleep entry, set "correction": true.
+Trigger words (Czech): "oprav", "změň", "uprav", "vlastně", "ne, bylo to", "opravit"
+Trigger words (English): "fix", "correct", "change", "update", "actually it was", "make it"
+Examples:
+- "oprav to na 7 hodin" → correction: true, duration: 420
+- "vlastně jsem spal 6 hodin" → correction: true, duration: 360
+- "change my sleep to 8 hours" → correction: true, duration: 480
+
+#### PAST DATE detection
+If the user references a specific past day, set "targetDate" to the correct YYYY-MM-DD.
+Today's date is provided in the CONTEXT section below. Use it to calculate relative dates.
+- "včera" / "yesterday" → yesterday's date
+- "předevčírem" / "day before yesterday" → 2 days ago
+- "v pondělí" / "on Monday" → most recent past Monday
+- "v úterý" / "on Tuesday" → most recent past Tuesday
+- "ve středu" / "on Wednesday" → most recent past Wednesday
+- "ve čtvrtek" / "on Thursday" → most recent past Thursday
+- "v pátek" / "on Friday" → most recent past Friday
+- "v sobotu" / "on Saturday" → most recent past Saturday
+- "v neděli" / "on Sunday" → most recent past Sunday
+If no date reference is given, omit targetDate (defaults to today).
+
 \`\`\`json
 {
   "intent": "log_sleep",
@@ -423,7 +448,9 @@ The user may describe sleep in Czech or English. Extract duration, bedtime, wake
     "duration": 420,
     "bedtime": "23:00",
     "wakeTime": "06:00",
-    "quality": "good"
+    "quality": "good",
+    "correction": false,
+    "targetDate": "2025-01-15"
   },
   "acknowledgment": "7 hodin, solid!",
   "message": "Nice rest! That's right around your goal."
@@ -432,6 +459,7 @@ The user may describe sleep in Czech or English. Extract duration, bedtime, wake
 
 Quality values: "poor" | "fair" | "good" | "great" (omit if unclear)
 Duration is ALWAYS in minutes.
+"correction" and "targetDate" are optional — omit when not applicable.
 ` : ''}${trainingContext ? `### IF the message describes TRAINING → use this format:
 
 The user may describe training in Czech or English. Extract muscle group, duration, and notes.
@@ -737,6 +765,8 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
           bedtime: parsed.sleep.bedtime,
           wakeTime: parsed.sleep.wakeTime,
           quality: parsed.sleep.quality,
+          correction: parsed.sleep.correction,
+          targetDate: parsed.sleep.targetDate,
         },
         coaching: parsed.coaching,
         quickReplies: parsed.quickReplies,
