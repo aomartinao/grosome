@@ -100,6 +100,8 @@ export interface ChatMessage {
   foodEntry?: FoodEntry;
   foodEntrySyncId?: string;     // Link to confirmed food entry
   foodEntryDeletedAt?: Date;    // Tracks when food entry was deleted (survives sync)
+  sleepEntry?: SleepEntry;      // Confirmed sleep entry attached to this message
+  trainingEntry?: TrainingEntry; // Confirmed training entry attached to this message
   isLoading?: boolean;
   isError?: boolean;            // Marks error messages for distinct styling
   isAnalyzingImage?: boolean;   // Shows "Analyzing photo..." in loading state

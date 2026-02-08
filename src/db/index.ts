@@ -321,6 +321,18 @@ export async function getEntryBySyncId(syncId: string): Promise<FoodEntry | unde
   return entry ? normalizeFoodEntryDates(entry) : undefined;
 }
 
+// Helper to serialize entry dates (shared by food, sleep, training)
+function serializeEntryDates<T extends { createdAt?: unknown; updatedAt?: unknown; deletedAt?: unknown }>(
+  entry: T
+): T {
+  return {
+    ...entry,
+    createdAt: entry.createdAt instanceof Date ? entry.createdAt.toISOString() : entry.createdAt,
+    updatedAt: entry.updatedAt instanceof Date ? (entry.updatedAt as Date).toISOString() : entry.updatedAt,
+    deletedAt: entry.deletedAt instanceof Date ? (entry.deletedAt as Date).toISOString() : entry.deletedAt,
+  };
+}
+
 // Helper to serialize dates for storage
 function serializeMessage(message: Omit<ChatMessage, 'id'>): Record<string, unknown> {
   return {
@@ -330,30 +342,42 @@ function serializeMessage(message: Omit<ChatMessage, 'id'>): Record<string, unkn
     deletedAt: message.deletedAt instanceof Date ? message.deletedAt.toISOString() : message.deletedAt,
     // Serialize foodEntry dates if present
     foodEntry: message.foodEntry ? {
-      ...message.foodEntry,
+      ...serializeEntryDates(message.foodEntry),
       consumedAt: message.foodEntry.consumedAt instanceof Date ? message.foodEntry.consumedAt.toISOString() : message.foodEntry.consumedAt,
-      createdAt: message.foodEntry.createdAt instanceof Date ? message.foodEntry.createdAt.toISOString() : message.foodEntry.createdAt,
-      updatedAt: message.foodEntry.updatedAt instanceof Date ? message.foodEntry.updatedAt?.toISOString() : message.foodEntry.updatedAt,
-      deletedAt: message.foodEntry.deletedAt instanceof Date ? message.foodEntry.deletedAt?.toISOString() : message.foodEntry.deletedAt,
     } : undefined,
+    // Serialize sleepEntry dates if present
+    sleepEntry: message.sleepEntry ? serializeEntryDates(message.sleepEntry) : undefined,
+    // Serialize trainingEntry dates if present
+    trainingEntry: message.trainingEntry ? serializeEntryDates(message.trainingEntry) : undefined,
+  };
+}
+
+// Helper to deserialize entry dates from storage
+function deserializeEntryDates(entry: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...entry,
+    createdAt: entry.createdAt ? new Date(entry.createdAt as string) : new Date(),
+    updatedAt: entry.updatedAt ? new Date(entry.updatedAt as string) : undefined,
+    deletedAt: entry.deletedAt ? new Date(entry.deletedAt as string) : undefined,
   };
 }
 
 // Helper to deserialize dates from storage
 function deserializeMessage(stored: Record<string, unknown>): ChatMessage {
   const foodEntry = stored.foodEntry as Record<string, unknown> | undefined;
+  const sleepEntry = stored.sleepEntry as Record<string, unknown> | undefined;
+  const trainingEntry = stored.trainingEntry as Record<string, unknown> | undefined;
   return {
     ...stored,
     timestamp: stored.timestamp ? new Date(stored.timestamp as string) : new Date(),
     updatedAt: stored.updatedAt ? new Date(stored.updatedAt as string) : undefined,
     deletedAt: stored.deletedAt ? new Date(stored.deletedAt as string) : undefined,
     foodEntry: foodEntry ? {
-      ...foodEntry,
+      ...deserializeEntryDates(foodEntry),
       consumedAt: foodEntry.consumedAt ? new Date(foodEntry.consumedAt as string) : undefined,
-      createdAt: foodEntry.createdAt ? new Date(foodEntry.createdAt as string) : new Date(),
-      updatedAt: foodEntry.updatedAt ? new Date(foodEntry.updatedAt as string) : undefined,
-      deletedAt: foodEntry.deletedAt ? new Date(foodEntry.deletedAt as string) : undefined,
     } as FoodEntry : undefined,
+    sleepEntry: sleepEntry ? deserializeEntryDates(sleepEntry) as unknown as SleepEntry : undefined,
+    trainingEntry: trainingEntry ? deserializeEntryDates(trainingEntry) as unknown as TrainingEntry : undefined,
   } as ChatMessage;
 }
 
@@ -403,6 +427,12 @@ export async function updateChatMessage(id: number, updates: Partial<ChatMessage
       updatedAt: updates.foodEntry.updatedAt instanceof Date ? updates.foodEntry.updatedAt?.toISOString() : updates.foodEntry.updatedAt,
       deletedAt: updates.foodEntry.deletedAt instanceof Date ? updates.foodEntry.deletedAt?.toISOString() : updates.foodEntry.deletedAt,
     };
+  }
+  if (updates.sleepEntry) {
+    serializedUpdates.sleepEntry = serializeEntryDates(updates.sleepEntry);
+  }
+  if (updates.trainingEntry) {
+    serializedUpdates.trainingEntry = serializeEntryDates(updates.trainingEntry);
   }
   return db.chatMessages.update(id, serializedUpdates as Partial<ChatMessage>);
 }

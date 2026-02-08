@@ -664,22 +664,27 @@ export function UnifiedChat() {
   const handleConfirmSleep = async () => {
     if (!pendingSleep) return;
 
-    const { analysis } = pendingSleep;
+    const { analysis, messageSyncId } = pendingSleep;
     const now = new Date();
 
-    await addSleepEntry({
+    const sleepEntry = {
       date: getToday(),
       duration: analysis.duration,
       bedtime: analysis.bedtime,
       wakeTime: analysis.wakeTime,
       quality: analysis.quality,
-      source: 'manual',
+      source: 'manual' as const,
       createdAt: now,
       updatedAt: now,
-    });
+    };
+
+    await addSleepEntry(sleepEntry);
 
     triggerHaptic('success');
     triggerSync();
+
+    // Store sleep entry on the message for persistence in chat feed
+    updateMessage(messageSyncId, { sleepEntry });
 
     // Refresh sleep context
     const [avg7, lastEntry] = await Promise.all([
@@ -706,21 +711,26 @@ export function UnifiedChat() {
   const handleConfirmTraining = async () => {
     if (!pendingTraining) return;
 
-    const { analysis } = pendingTraining;
+    const { analysis, messageSyncId } = pendingTraining;
     const now = new Date();
 
-    await addTrainingEntry({
+    const trainingEntry = {
       date: getToday(),
       muscleGroup: analysis.muscleGroup,
       duration: analysis.duration,
       notes: analysis.notes,
-      source: 'manual',
+      source: 'manual' as const,
       createdAt: now,
       updatedAt: now,
-    });
+    };
+
+    await addTrainingEntry(trainingEntry);
 
     triggerHaptic('success');
     triggerSync();
+
+    // Store training entry on the message for persistence in chat feed
+    updateMessage(messageSyncId, { trainingEntry });
 
     // Refresh training context
     const [sessions, daysSince] = await Promise.all([
@@ -972,6 +982,17 @@ export function UnifiedChat() {
                 </div>
               )}
 
+              {/* Render confirmed SleepLogCard (persisted) */}
+              {message.sleepEntry && !(pendingSleep && pendingSleep.messageSyncId === message.syncId) && (
+                <div className="mt-2 mb-3">
+                  <SleepLogCard
+                    entry={message.sleepEntry}
+                    sleepGoalMinutes={settings.sleepGoalMinutes}
+                    isConfirmed
+                  />
+                </div>
+              )}
+
               {/* Render pending SleepLogCard */}
               {pendingSleep && pendingSleep.messageSyncId === message.syncId && (
                 <div className="mt-2 mb-3">
@@ -985,6 +1006,16 @@ export function UnifiedChat() {
                     sleepGoalMinutes={settings.sleepGoalMinutes}
                     onConfirm={handleConfirmSleep}
                     onCancel={handleCancelSleep}
+                  />
+                </div>
+              )}
+
+              {/* Render confirmed TrainingLogCard (persisted) */}
+              {message.trainingEntry && !(pendingTraining && pendingTraining.messageSyncId === message.syncId) && (
+                <div className="mt-2 mb-3">
+                  <TrainingLogCard
+                    entry={message.trainingEntry}
+                    isConfirmed
                   />
                 </div>
               )}
