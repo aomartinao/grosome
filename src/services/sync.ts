@@ -298,18 +298,6 @@ async function pushToCloud(userId: string, lastPushTime: Date | null): Promise<{
       console.error('[Sync] Push completed with errors:', errors);
     }
 
-    // Verify push by querying what's in the cloud
-    const { data: cloudData, error: verifyError } = await supabase
-      .from('food_entries')
-      .select('sync_id, food_name, updated_at')
-      .eq('user_id', userId);
-
-    if (verifyError) {
-      console.error('[Sync] Push verification failed:', verifyError);
-    } else {
-      syncDebug('Push verification - entries in cloud:', cloudData?.length, cloudData?.map(e => ({ syncId: e.sync_id, name: e.food_name })));
-    }
-
     return { success: true, count: pushedCount };
   } catch (err) {
     return {
@@ -348,7 +336,7 @@ async function pullFromCloud(userId: string, lastPullTime: Date | null): Promise
     // Build query - get entries modified since last pull
     let query = supabase
       .from('food_entries')
-      .select('*')
+      .select('id, user_id, sync_id, date, source, food_name, protein, calories, confidence, created_at, updated_at, deleted_at')
       .eq('user_id', userId);
 
     // Delta sync: only get changes since last pull

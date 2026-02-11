@@ -10,7 +10,7 @@ export function useUpdateAvailable() {
       if (registration) {
         setInterval(() => {
           registration.update();
-        }, 60 * 1000);
+        }, 60 * 60 * 1000);
       }
       console.log('[PWA] Service worker registered:', swUrl);
     },
