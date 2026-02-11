@@ -1098,8 +1098,8 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
       // - For sensitive fields: local wins (security)
       const mergedSettings: UserSettings = {
         ...cloudSettings,
-        // Keep local API key if set (security - never overwrite local key)
-        claudeApiKey: localSettings?.claudeApiKey || cloudSettings.claudeApiKey,
+        // Cloud wins for API key (managed via Settings page which pushes to cloud)
+        claudeApiKey: cloudSettings.claudeApiKey || localSettings?.claudeApiKey,
         // Keep local dietary preferences if cloud doesn't have them
         dietaryPreferences: cloudSettings.dietaryPreferences || localSettings?.dietaryPreferences,
         // For boolean toggles: true wins (enabling on any device should propagate)
