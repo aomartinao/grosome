@@ -130,7 +130,7 @@ export async function getApiUsageStats() {
 export async function addApiKeyForUser(userId: string, apiKey: string): Promise<boolean> {
   const { error } = await supabase.rpc('admin_add_api_key', {
     target_user_id: userId,
-    api_key: apiKey,
+    new_api_key: apiKey,
   });
 
   if (error) {
