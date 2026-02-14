@@ -34,6 +34,7 @@ export function ChatInput({
   // Handle external image (e.g., from floating add button camera)
   useEffect(() => {
     if (externalImage && pendingImages.length < MAX_IMAGES) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- consuming external prop
       setPendingImages(prev => [...prev, externalImage]);
       onExternalImageConsumed?.();
     }
@@ -42,6 +43,7 @@ export function ChatInput({
   // Handle initial text (e.g., from quick log pre-fill)
   useEffect(() => {
     if (initialText) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- consuming external prop
       setText(initialText);
       onInitialTextConsumed?.();
       // Focus the input after setting text

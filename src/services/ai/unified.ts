@@ -629,6 +629,7 @@ export async function processUnifiedMessage(
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
       system: buildUnifiedSystemPrompt(context),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       messages: messages as any,
       request_type: 'unified',
     });

@@ -814,6 +814,7 @@ export function UnifiedChat() {
   };
 
   // Learn user preference from confirmed meals
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const learnPreference = async (foodName: string, _type: 'favorite' | 'dislike') => {
     // Normalize food name for comparison
     const normalizedName = foodName.toLowerCase().trim();

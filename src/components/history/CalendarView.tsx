@@ -315,6 +315,7 @@ export function CalendarView({
             ref={popoverRef}
             className="absolute z-50"
             style={{
+              // eslint-disable-next-line react-hooks/refs -- reading ref for layout positioning
               left: Math.min(Math.max(popoverPosition.x - 90, 10), calendarRef.current ? calendarRef.current.offsetWidth - 200 : 100),
               top: Math.max(popoverPosition.y - 160, 10),
             }}

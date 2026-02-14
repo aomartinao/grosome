@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useState, useEffect } from 'react';
 import { Cloud, CloudOff, RefreshCw, Check, AlertCircle, ChevronRight, AlertTriangle, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,14 @@ import { cn } from '@/lib/utils';
 
 // Warning threshold: show warning if data hasn't synced in this many minutes
 const SYNC_WARNING_THRESHOLD_MINUTES = 10;
+
+function SectionWrapper({ children }: { children: ReactNode }) {
+  return (
+    <div className="bg-card rounded-2xl overflow-hidden shadow-sm">
+      {children}
+    </div>
+  );
+}
 
 export function SyncStatus() {
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -58,13 +67,6 @@ export function SyncStatus() {
     await clearSyncMeta();
     await syncData();
   };
-
-  // Wrapper for consistent styling
-  const SectionWrapper = ({ children }: { children: React.ReactNode }) => (
-    <div className="bg-card rounded-2xl overflow-hidden shadow-sm">
-      {children}
-    </div>
-  );
 
   // Not configured - minimal display
   if (!isConfigured) {

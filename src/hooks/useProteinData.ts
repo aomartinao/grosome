@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   db,
@@ -62,7 +62,6 @@ export function useDeleteEntry() {
     // Show undo toast
     toast({
       description: foodName ? `"${foodName}" deleted` : 'Entry deleted',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       action: React.createElement(ToastAction, {
         altText: 'Undo',
         onClick: async () => {
@@ -70,6 +69,7 @@ export function useDeleteEntry() {
           await restoreFoodEntry(id);
           triggerSync();
         },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }, 'Undo') as any,
       duration: 5000,
     });
@@ -119,13 +119,7 @@ export function useSettings() {
 }
 
 export function useStreak(entries: FoodEntry[], defaultGoal: number): StreakInfo {
-  const [streak, setStreak] = useState<StreakInfo>({
-    currentStreak: 0,
-    longestStreak: 0,
-    lastGoalMetDate: null,
-  });
-
-  useEffect(() => {
+  return useMemo(() => {
     // Calculate streak
     const dailyTotals = new Map<string, number>();
     for (const entry of entries) {
@@ -179,14 +173,12 @@ export function useStreak(entries: FoodEntry[], defaultGoal: number): StreakInfo
       longestStreak = tempStreak;
     }
 
-    setStreak({
+    return {
       currentStreak,
       longestStreak: Math.max(longestStreak, currentStreak),
       lastGoalMetDate,
-    });
+    };
   }, [entries, defaultGoal]);
-
-  return streak;
 }
 
 export interface RemainingProtein {
@@ -198,12 +190,12 @@ export interface RemainingProtein {
 export function useRemainingProtein(): RemainingProtein {
   const { settings } = useStore();
   const today = getToday();
-  const entries = useLiveQuery(() => getEntriesForDate(today), [today]) || [];
+  const entries = useLiveQuery(() => getEntriesForDate(today), [today]);
   const dailyGoal = useLiveQuery(() => getDailyGoal(today), [today]);
 
   return useMemo(() => {
     const goal = dailyGoal?.goal ?? settings.defaultGoal;
-    const consumed = entries.reduce((sum, entry) => sum + entry.protein, 0);
+    const consumed = (entries || []).reduce((sum, entry) => sum + entry.protein, 0);
     const remaining = Math.max(0, goal - consumed);
 
     return { remaining, goal, consumed };

@@ -23,6 +23,7 @@ export function TypewriterText({
 
   useEffect(() => {
     if (skipAnimation) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayedText(text);
       setIsComplete(true);
       return;

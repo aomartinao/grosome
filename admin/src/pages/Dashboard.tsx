@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Users, Activity, Key, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getUserStats, getApiUsageStats, type UserStats } from '@/services/supabase';
+import { getUserStats, getApiUsageStats } from '@/services/supabase';
 import { formatNumber } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { format, subDays, startOfDay } from 'date-fns';
+import { format, subDays } from 'date-fns';
 
 interface DashboardStats {
   totalUsers: number;

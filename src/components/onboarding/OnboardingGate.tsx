@@ -13,6 +13,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
     // Already completed onboarding
     if (settings.onboardingCompleted) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setChecked(true);
       setShowOnboarding(false);
       return;

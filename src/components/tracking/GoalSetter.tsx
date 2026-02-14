@@ -24,6 +24,7 @@ export function GoalSetter({ currentGoal, currentCalorieGoal, calorieTrackingEna
   const [calorieGoal, setCalorieGoal] = useState(currentCalorieGoal?.toString() || '');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGoal(currentGoal.toString());
     setCalorieGoal(currentCalorieGoal?.toString() || '');
   }, [currentGoal, currentCalorieGoal, open]);

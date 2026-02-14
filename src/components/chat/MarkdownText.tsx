@@ -35,7 +35,7 @@ function parseMarkdown(text: string): string {
   result = result.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 bg-muted rounded text-xs">$1</code>');
 
   // Convert bullet points (• or - at start of line)
-  result = result.replace(/^[•\-]\s+(.+)$/gm, '<span class="flex gap-2"><span class="text-primary">•</span><span>$1</span></span>');
+  result = result.replace(/^[•-]\s+(.+)$/gm, '<span class="flex gap-2"><span class="text-primary">•</span><span>$1</span></span>');
 
   // Convert newlines to <br> for display (but preserve structure)
   result = result.replace(/\n/g, '<br/>');

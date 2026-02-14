@@ -35,6 +35,7 @@ export function ProteinSpinner({ className, isSpinning, progress = 0 }: ProteinS
   useEffect(() => {
     if (!isSpinning) {
       // When not spinning, use progress for partial rotation
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deriving visual state from progress prop
       setRotation({ x: progress * 30, y: progress * 45 });
       return;
     }

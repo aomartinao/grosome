@@ -12,7 +12,7 @@ import {
   type UserStats,
   type ApiUsageRecord,
 } from '@/services/supabase';
-import { formatDate, formatDateTime, formatNumber } from '@/lib/utils';
+import { formatDateTime, formatNumber } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, subDays } from 'date-fns';
 
