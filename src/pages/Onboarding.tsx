@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { Target, Moon, Dumbbell, ChevronRight, ChevronLeft, Minus, Plus, Check, Sparkles } from 'lucide-react';
+import { Target, Moon, Dumbbell, ChevronRight, ChevronLeft, Minus, Plus, Check, LogIn, UserPlus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AuthScreen } from '@/components/auth/AuthScreen';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useSettings } from '@/hooks/useProteinData';
+import { db } from '@/db';
 import { cn } from '@/lib/utils';
 
 type Step = 'welcome' | 'protein' | 'sleep' | 'training' | 'complete';
@@ -79,7 +82,7 @@ export function Onboarding() {
       {/* Step content */}
       <div className="w-full max-w-sm">
         {step === 'welcome' && (
-          <WelcomeStep onNext={next} onSkip={skip} saving={saving} />
+          <WelcomeStep onNext={next} onSkip={skip} />
         )}
         {step === 'protein' && (
           <ProteinStep
@@ -128,22 +131,70 @@ export function Onboarding() {
 
 // --- Step Components ---
 
-function WelcomeStep({ onNext, onSkip, saving }: { onNext: () => void; onSkip: () => void; saving: boolean }) {
+function WelcomeStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
+  const [showAuth, setShowAuth] = useState(false);
+  const [signUpMode, setSignUpMode] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const { syncData } = useAuthStore();
+
   const pillars = [
     { icon: Target, color: 'text-primary', bg: 'bg-primary/10', title: 'Protein', desc: 'Track daily protein intake towards your goal' },
     { icon: Moon, color: 'text-purple-500', bg: 'bg-purple-500/10', title: 'Sleep', desc: 'Monitor sleep duration and quality' },
     { icon: Dumbbell, color: 'text-emerald-500', bg: 'bg-emerald-500/10', title: 'Training', desc: 'Log workouts and track consistency' },
   ];
 
+  const handleAuthSuccess = async () => {
+    // Sync data from cloud, then check if returning user
+    setSyncing(true);
+    try {
+      await syncData();
+      const count = await db.foodEntries.count();
+      if (count > 0) {
+        // Returning user — skip goal setup, go to dashboard
+        onSkip();
+      } else {
+        // New user — continue to goal setup
+        onNext();
+      }
+    } catch {
+      // Even if sync fails, proceed to goal setup
+      onNext();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (syncing) {
+    return (
+      <div className="text-center space-y-4 py-12">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        <p className="text-sm text-muted-foreground">Syncing your data...</p>
+      </div>
+    );
+  }
+
+  if (showAuth) {
+    return (
+      <div className="space-y-4">
+        <AuthScreen onClose={handleAuthSuccess} initialMode={signUpMode ? 'signup' : 'signin'} />
+        <button
+          onClick={() => setShowAuth(false)}
+          className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Back
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="text-center space-y-6">
       <div>
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Sparkles className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Welcome to Grosome</h1>
-        </div>
+        <h1 className="text-3xl font-bold mb-2">
+          <span className="text-amber-500">gro</span><span className="text-amber-300">some</span>
+        </h1>
         <p className="text-muted-foreground text-sm">
-          Set up your goals in under a minute
+          Build and preserve muscle with three pillars — protein, sleep, and strength training.
         </p>
       </div>
 
@@ -163,18 +214,18 @@ function WelcomeStep({ onNext, onSkip, saving }: { onNext: () => void; onSkip: (
 
       <div className="space-y-3 pt-2">
         <Button
-          onClick={onNext}
+          onClick={() => { setSignUpMode(true); setShowAuth(true); }}
           className="w-full h-12 text-base font-semibold btn-press"
         >
-          Get Started
-          <ChevronRight className="h-5 w-5 ml-1" />
+          <UserPlus className="h-5 w-5 mr-2" />
+          Create free account
         </Button>
         <button
-          onClick={onSkip}
-          disabled={saving}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => { setSignUpMode(false); setShowAuth(true); }}
+          className="flex items-center justify-center gap-1.5 w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          Skip, use defaults
+          <LogIn className="h-3.5 w-3.5" />
+          Already have an account? Log in
         </button>
       </div>
     </div>
