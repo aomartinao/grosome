@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Target, Moon, Dumbbell, ChevronRight, ChevronLeft, Minus, Plus, Check, Sparkles } from 'lucide-react';
+import { Target, Moon, Dumbbell, ChevronRight, ChevronLeft, Minus, Plus, Check, Sparkles, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AuthScreen } from '@/components/auth/AuthScreen';
 import { useSettings } from '@/hooks/useProteinData';
 import { cn } from '@/lib/utils';
 
@@ -129,11 +130,27 @@ export function Onboarding() {
 // --- Step Components ---
 
 function WelcomeStep({ onNext, onSkip, saving }: { onNext: () => void; onSkip: () => void; saving: boolean }) {
+  const [showAuth, setShowAuth] = useState(false);
+
   const pillars = [
     { icon: Target, color: 'text-primary', bg: 'bg-primary/10', title: 'Protein', desc: 'Track daily protein intake towards your goal' },
     { icon: Moon, color: 'text-purple-500', bg: 'bg-purple-500/10', title: 'Sleep', desc: 'Monitor sleep duration and quality' },
     { icon: Dumbbell, color: 'text-emerald-500', bg: 'bg-emerald-500/10', title: 'Training', desc: 'Log workouts and track consistency' },
   ];
+
+  if (showAuth) {
+    return (
+      <div className="space-y-4">
+        <AuthScreen onClose={() => onSkip()} />
+        <button
+          onClick={() => setShowAuth(false)}
+          className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Back to setup
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="text-center space-y-6">
@@ -175,6 +192,13 @@ function WelcomeStep({ onNext, onSkip, saving }: { onNext: () => void; onSkip: (
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           Skip, use defaults
+        </button>
+        <button
+          onClick={() => setShowAuth(true)}
+          className="flex items-center justify-center gap-1.5 w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <LogIn className="h-3.5 w-3.5" />
+          Already have an account? Log in
         </button>
       </div>
     </div>
