@@ -1,23 +1,23 @@
-import { Home, MessageSquare, Calendar, BarChart3, Settings } from 'lucide-react';
+import { Home, MessageSquare, BarChart3, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { to: '/', icon: Home, label: 'Today' },
-  { to: '/coach', icon: MessageSquare, label: 'Coach' },
-  { to: '/history', icon: Calendar, label: 'History' },
-  { to: '/reports', icon: BarChart3, label: 'Reports' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/', icon: Home, label: 'Today', end: true },
+  { to: '/coach', icon: MessageSquare, label: 'Coach', end: true },
+  { to: '/insights', icon: BarChart3, label: 'Insights', end: false },
+  { to: '/settings', icon: Settings, label: 'Settings', end: true },
 ];
 
 export function MobileNav() {
   return (
     <nav className="fixed bottom-4 left-4 right-4 z-50 floating-nav">
       <div className="flex items-center justify-around h-14 px-2">
-        {navItems.map(({ to, icon: Icon, label }) => (
+        {navItems.map(({ to, icon: Icon, label, end }) => (
           <NavLink
             key={to}
             to={to}
+            end={end}
             className={({ isActive }) =>
               cn(
                 'flex flex-col items-center justify-center flex-1 h-11 gap-0.5 text-[11px] transition-all duration-300 rounded-full mx-0.5',

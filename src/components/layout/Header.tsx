@@ -111,10 +111,12 @@ export function Header() {
       case '/chat':
       case '/advisor':
         return 'Coach';
-      case '/history':
-        return 'History';
-      case '/reports':
-        return 'Reports';
+      case '/insights':
+        return 'Insights';
+      case '/insights/protein':
+      case '/insights/sleep':
+      case '/insights/training':
+        return null; // Detail pages render their own header
       case '/settings':
         return 'Settings';
       default:
@@ -124,6 +126,7 @@ export function Header() {
 
   const isSettingsPage = location.pathname === '/settings';
   const isDashboardPage = location.pathname === '/';
+  const isInsightsDetailPage = location.pathname.startsWith('/insights/');
 
   const handleClearChat = async () => {
     await clearAllChatMessages();
@@ -271,6 +274,9 @@ export function Header() {
     if (percent >= 25) return 'text-orange-600';
     return 'text-red-600';
   };
+
+  // Detail pages render their own header
+  if (isInsightsDetailPage) return null;
 
   return (
     <>
