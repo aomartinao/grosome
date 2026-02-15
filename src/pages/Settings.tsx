@@ -19,6 +19,7 @@ import {
   Clock,
   Ruler,
   Flame,
+  Shield,
 } from 'lucide-react';
 import { version } from '../../package.json';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,8 @@ import { SyncStatus } from '@/components/settings/SyncStatus';
 import { DietaryPreferencesSection } from '@/components/settings/DietaryPreferencesSection';
 import { useSettings } from '@/hooks/useProteinData';
 import { useStore } from '@/store/useStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { getSupabase } from '@/services/supabase';
 import { db } from '@/db';
 import { cn } from '@/lib/utils';
 import {
@@ -165,8 +168,26 @@ export function Settings() {
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'current'>('idle');
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const { user } = useAuthStore();
 
   const proteinTrackingEnabled = settings.proteinTrackingEnabled !== false;
+
+  // Check if current user is admin
+  useEffect(() => {
+    async function checkAdmin() {
+      if (!user) return;
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const { data } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      setIsAdminUser(!!data);
+    }
+    checkAdmin();
+  }, [user]);
 
   const handleCheckForUpdates = async () => {
     setIsCheckingUpdate(true);
@@ -486,6 +507,20 @@ export function Settings() {
           )}
         </SettingsSection>
 
+        {/* Admin Section - only visible to admins */}
+        {isAdminUser && (
+          <SettingsSection title="Admin">
+            <SettingsRow
+              icon={Shield}
+              iconColor="text-indigo-500"
+              label="Admin Dashboard"
+              description="Manage users and API keys"
+              onClick={() => window.open('https://admin-three-silk.vercel.app', '_blank')}
+              action={<ExternalLink className="h-4 w-4 text-muted-foreground" />}
+            />
+          </SettingsSection>
+        )}
+
         {/* Data Section */}
         <SettingsSection title="Data">
           <SettingsRow
@@ -525,7 +560,7 @@ export function Settings() {
         <div className="pt-4 pb-2 text-center space-y-3">
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">Grosome</span>
+            <span className="text-sm font-medium"><span className="text-amber-500">gro</span><span className="text-amber-300">some</span></span>
             <span className="text-xs bg-muted px-2 py-0.5 rounded-full">v{version}</span>
           </div>
           <p className="text-xs text-muted-foreground">

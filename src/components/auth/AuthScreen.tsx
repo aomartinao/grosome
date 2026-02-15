@@ -7,10 +7,11 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 interface AuthScreenProps {
   onClose?: () => void;
+  initialMode?: 'signin' | 'signup';
 }
 
-export function AuthScreen({ onClose }: AuthScreenProps) {
-  const [isSignUp, setIsSignUp] = useState(false);
+export function AuthScreen({ onClose, initialMode = 'signin' }: AuthScreenProps) {
+  const [isSignUp, setIsSignUp] = useState(initialMode === 'signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
