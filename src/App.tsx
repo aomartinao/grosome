@@ -3,9 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { UnifiedChat } from '@/pages/UnifiedChat';
-import { History } from '@/pages/History';
+import { Insights } from '@/pages/Insights';
+import { InsightsDetail } from '@/pages/InsightsDetail';
 import { Settings } from '@/pages/Settings';
-import { Reports } from '@/pages/Reports';
 import { SwipeProvider } from '@/context/SwipeContext';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -35,8 +35,11 @@ function App() {
               {/* Legacy routes redirect to /coach */}
               <Route path="chat" element={<Navigate to="/coach" replace />} />
               <Route path="advisor" element={<Navigate to="/coach" replace />} />
-              <Route path="history" element={<ErrorBoundary><History /></ErrorBoundary>} />
-              <Route path="reports" element={<ErrorBoundary><Reports /></ErrorBoundary>} />
+              <Route path="insights" element={<ErrorBoundary><Insights /></ErrorBoundary>} />
+              <Route path="insights/:pillar" element={<ErrorBoundary><InsightsDetail /></ErrorBoundary>} />
+              {/* Legacy routes redirect to /insights */}
+              <Route path="history" element={<Navigate to="/insights" replace />} />
+              <Route path="reports" element={<Navigate to="/insights" replace />} />
               <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
             </Route>
           </Routes>

@@ -111,19 +111,22 @@ export function Header() {
       case '/chat':
       case '/advisor':
         return 'Coach';
-      case '/history':
-        return 'History';
-      case '/reports':
-        return 'Reports';
+      case '/insights':
+        return 'Insights';
+      case '/insights/protein':
+      case '/insights/sleep':
+      case '/insights/training':
+        return null; // Detail pages render their own header
       case '/settings':
         return 'Settings';
       default:
-        return 'Grrromode';
+        return 'Grosome';
     }
   };
 
   const isSettingsPage = location.pathname === '/settings';
   const isDashboardPage = location.pathname === '/';
+  const isInsightsDetailPage = location.pathname.startsWith('/insights/');
 
   const handleClearChat = async () => {
     await clearAllChatMessages();
@@ -200,7 +203,7 @@ export function Header() {
       <PopoverTrigger asChild>
         <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <Target className="h-6 w-6 text-amber-500" />
-          <span className="text-xl font-semibold text-foreground">Grrromode</span>
+          <span className="text-xl font-semibold text-foreground">Grosome</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72" align="start">
@@ -208,7 +211,7 @@ export function Header() {
           <div className="flex items-center gap-2">
             <Target className="h-6 w-6 text-amber-500" />
             <div>
-              <h4 className="font-semibold">Grrromode</h4>
+              <h4 className="font-semibold">Grosome</h4>
               <p className="text-xs text-muted-foreground">v{version}</p>
             </div>
           </div>
@@ -271,6 +274,9 @@ export function Header() {
     if (percent >= 25) return 'text-orange-600';
     return 'text-red-600';
   };
+
+  // Detail pages render their own header
+  if (isInsightsDetailPage) return null;
 
   return (
     <>

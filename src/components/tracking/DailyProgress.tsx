@@ -449,7 +449,7 @@ export function DailyProgress({
         {/* View History Link */}
         <button
           className="flex items-center justify-center gap-2 py-4 border-t border-border/50 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          onClick={() => navigate('/history')}
+          onClick={() => navigate('/insights')}
         >
           <History className="h-4 w-4" />
           View full history

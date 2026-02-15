@@ -17,6 +17,7 @@ interface WeeklyPillarChartProps {
   unit: string;
   color: string;
   bgColor: string;
+  compact?: boolean;
 }
 
 export function WeeklyPillarChart({
@@ -25,6 +26,7 @@ export function WeeklyPillarChart({
   unit,
   color,
   bgColor,
+  compact = false,
 }: WeeklyPillarChartProps) {
   const { average, goalsMet, goalValue, yMax } = useMemo(() => {
     const nonZero = data.filter((d) => d.value > 0);
@@ -45,6 +47,63 @@ export function WeeklyPillarChart({
 
   if (data.length === 0) return null;
 
+  // Use a stable gradient ID to avoid conflicts
+  const gradientId = `pillarGrad-${label || 'compact'}-${color.replace('#', '')}`;
+
+  const chartContent = (
+    <div className={compact ? 'h-24' : 'h-40'}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={compact ? { top: 4, right: 0, left: 0, bottom: 0 } : { top: 8, right: 4, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.9} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.5} />
+            </linearGradient>
+          </defs>
+
+          <ReferenceLine
+            y={goalValue}
+            stroke="#9ca3af"
+            strokeWidth={compact ? 1 : 1.5}
+            strokeDasharray="4 4"
+          />
+
+          <XAxis
+            dataKey="day"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: compact ? 9 : 11, fill: 'hsl(var(--muted-foreground))' }}
+            height={compact ? 18 : undefined}
+          />
+          {!compact && (
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 10, fill: '#9ca3af' }}
+              width={28}
+              domain={[0, yMax]}
+            />
+          )}
+
+          <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={compact ? 24 : 32}>
+            {data.map((entry, index) => (
+              <Cell
+                key={index}
+                fill={entry.goalMet ? `url(#${gradientId})` : bgColor}
+                stroke={entry.isToday ? color : 'none'}
+                strokeWidth={entry.isToday ? 2 : 0}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+
+  if (compact) {
+    return chartContent;
+  }
+
   return (
     <div className="bg-card rounded-2xl p-4 shadow-sm">
       {/* Header */}
@@ -60,52 +119,7 @@ export function WeeklyPillarChart({
           </span>
         </div>
       </div>
-
-      {/* Chart */}
-      <div className="h-40">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`pillarGrad-${label}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity={0.9} />
-                <stop offset="100%" stopColor={color} stopOpacity={0.5} />
-              </linearGradient>
-            </defs>
-
-            <ReferenceLine
-              y={goalValue}
-              stroke="#9ca3af"
-              strokeWidth={1.5}
-              strokeDasharray="4 4"
-            />
-
-            <XAxis
-              dataKey="day"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 10, fill: '#9ca3af' }}
-              width={28}
-              domain={[0, yMax]}
-            />
-
-            <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={32}>
-              {data.map((entry, index) => (
-                <Cell
-                  key={index}
-                  fill={entry.goalMet ? `url(#pillarGrad-${label})` : bgColor}
-                  stroke={entry.isToday ? color : 'none'}
-                  strokeWidth={entry.isToday ? 2 : 0}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {chartContent}
     </div>
   );
 }
