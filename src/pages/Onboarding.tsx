@@ -140,7 +140,7 @@ function WelcomeStep({ onNext, onSkip, saving }: { onNext: () => void; onSkip: (
       <div>
         <div className="flex items-center justify-center gap-2 mb-2">
           <Sparkles className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Welcome to Grrromode</h1>
+          <h1 className="text-2xl font-bold">Welcome to Grosome</h1>
         </div>
         <p className="text-muted-foreground text-sm">
           Set up your goals in under a minute
