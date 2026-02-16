@@ -191,7 +191,7 @@ function WelcomeStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
     <div className="text-center space-y-6">
       <div>
         <h1 className="text-3xl font-bold mb-2">
-          <span className="text-amber-500">gro</span><span className="text-amber-300">some</span>
+          <span className="text-amber-500">gro</span><span className="text-foreground">some</span>
         </h1>
         <p className="text-muted-foreground text-sm">
           Build and preserve muscle with three pillars — protein, sleep, and strength training.

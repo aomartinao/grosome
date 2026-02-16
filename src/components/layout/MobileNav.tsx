@@ -1,11 +1,11 @@
-import { Home, MessageSquare, BarChart3, Settings } from 'lucide-react';
+import { Home, MessageSquare, Sparkles, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Today', end: true },
   { to: '/coach', icon: MessageSquare, label: 'Coach', end: true },
-  { to: '/insights', icon: BarChart3, label: 'Insights', end: false },
+  { to: '/insights', icon: Sparkles, label: 'Insights', end: false },
   { to: '/settings', icon: Settings, label: 'Settings', end: true },
 ];
 
