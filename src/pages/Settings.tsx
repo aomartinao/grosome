@@ -560,7 +560,7 @@ export function Settings() {
         <div className="pt-4 pb-2 text-center space-y-3">
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium"><span className="text-amber-500">gro</span><span className="text-amber-300">some</span></span>
+            <span className="text-sm font-medium"><span className="text-amber-500">gro</span><span className="text-foreground">some</span></span>
             <span className="text-xs bg-muted px-2 py-0.5 rounded-full">v{version}</span>
           </div>
           <p className="text-xs text-muted-foreground">
