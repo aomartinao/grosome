@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Image as ImageIcon, X } from 'lucide-react';
+import { Camera, Send, Image as ImageIcon, X, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { compressImage } from '@/lib/utils';
 
@@ -11,6 +11,8 @@ interface ChatInputProps {
   onExternalImageConsumed?: () => void;
   initialText?: string;
   onInitialTextConsumed?: () => void;
+  onSleepQuickLog?: () => void;
+  showSleepButton?: boolean;
 }
 
 const MAX_IMAGES = 4;
@@ -23,6 +25,8 @@ export function ChatInput({
   onExternalImageConsumed,
   initialText,
   onInitialTextConsumed,
+  onSleepQuickLog,
+  showSleepButton = false,
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [pendingImages, setPendingImages] = useState<string[]>([]);
@@ -166,6 +170,20 @@ export function ChatInput({
             <ImageIcon className="h-5 w-5 text-muted-foreground" />
             <span className="sr-only">Upload image</span>
           </Button>
+
+          {showSleepButton && onSleepQuickLog && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full hover:bg-muted"
+              onClick={onSleepQuickLog}
+              disabled={disabled}
+            >
+              <Moon className="h-5 w-5 text-indigo-400" />
+              <span className="sr-only">Log sleep</span>
+            </Button>
+          )}
         </div>
 
         {/* Text input */}

@@ -5,6 +5,7 @@ import { MessageBubble } from '@/components/chat/MessageBubble';
 import { FoodCard } from '@/components/chat/FoodCard';
 import { LoggedFoodCard } from '@/components/chat/LoggedFoodCard';
 import { SleepLogCard } from '@/components/chat/SleepLogCard';
+import { SleepQuickLogCard } from '@/components/chat/SleepQuickLogCard';
 import { TrainingLogCard } from '@/components/chat/TrainingLogCard';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { QuickLogShortcuts } from '@/components/chat/QuickLogShortcuts';
@@ -125,6 +126,9 @@ export function UnifiedChat() {
 
   // Pre-fill text state for quick log shortcuts
   const [prefillText, setPrefillText] = useState<string | null>(null);
+
+  // Sleep quick log state (bypasses AI)
+  const [showSleepQuickLog, setShowSleepQuickLog] = useState(false);
 
   // Progress feedback state (shows +Xg animation on confirm)
   const [progressFeedback, setProgressFeedback] = useState<number | null>(null);
@@ -353,6 +357,12 @@ export function UnifiedChat() {
     if (isInitialScroll) {
       hasScrolledRef.current = true;
       scrollToBottom(true);
+      // Re-scroll after cards/images finish layout
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom(true);
+        });
+      });
       return;
     }
 
@@ -874,9 +884,70 @@ export function UnifiedChat() {
     setShowQuickLogSuggestions(focused && !hasText);
   }, []);
 
+  // Handle sleep quick log button
+  const handleSleepQuickLogStart = useCallback(() => {
+    setShowSleepQuickLog(true);
+    setShowQuickLogSuggestions(false);
+    // Add a user message to show intent
+    addMessage({
+      syncId: crypto.randomUUID(),
+      type: 'user',
+      content: 'Log sleep',
+      timestamp: new Date(),
+    });
+  }, [addMessage]);
+
+  // Confirm sleep quick log (no AI)
+  const handleSleepQuickLogConfirm = async (data: { duration: number; quality?: string }) => {
+    const now = new Date();
+    const entryDate = getToday();
+
+    const sleepEntry = {
+      date: entryDate,
+      duration: data.duration,
+      quality: data.quality as 'poor' | 'fair' | 'good' | 'great' | undefined,
+      source: 'manual' as const,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await addSleepEntry(sleepEntry);
+    triggerHaptic('success');
+    triggerSync();
+
+    // Add a confirmation message with the sleep entry embedded
+    addMessage({
+      syncId: crypto.randomUUID(),
+      type: 'assistant',
+      content: 'Sleep logged.',
+      sleepEntry,
+      timestamp: new Date(),
+    });
+
+    // Refresh sleep context
+    const [avg7, lastEntry] = await Promise.all([
+      getSleepAverageForDays(7),
+      getLastSleepEntry(),
+    ]);
+    setSleepContext({
+      sleepLastNight: lastEntry?.date === getToday() ? lastEntry.duration : undefined,
+      sleepAvg7Days: avg7 || undefined,
+      sleepGoal: settings.sleepGoalMinutes,
+    });
+
+    setShowSleepQuickLog(false);
+  };
+
+  // Cancel sleep quick log
+  const handleSleepQuickLogCancel = () => {
+    setShowSleepQuickLog(false);
+  };
+
   // Handle edit click on logged food card
   const handleEditLoggedFood = (entry: FoodEntry) => {
-    setEditingEntry(entry);
+    // Prefer DB entry (has id) over message-embedded entry (may lack id)
+    const dbEntry = entry.syncId ? entriesBySyncId.get(entry.syncId) : undefined;
+    setEditingEntry(dbEntry || entry);
   };
 
   // Save edited food entry (callback for FoodEntryEditDialog)
@@ -952,7 +1023,7 @@ export function UnifiedChat() {
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-2 min-h-0 scroll-smooth overscroll-contain relative"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-2 min-h-0 overscroll-contain relative"
       >
         {messages.map((message, index) => {
           // Check for confirmed food entry on this message
@@ -1112,6 +1183,17 @@ export function UnifiedChat() {
           </div>
         )}
 
+        {/* Sleep quick log (inline, no AI) */}
+        {showSleepQuickLog && (
+          <div className="mt-2 mb-3">
+            <SleepQuickLogCard
+              onConfirm={handleSleepQuickLogConfirm}
+              onCancel={handleSleepQuickLogCancel}
+              sleepGoalMinutes={settings.sleepGoalMinutes}
+            />
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
 
         {/* New message pill - shown when scrolled up and new messages arrive */}
@@ -1136,19 +1218,36 @@ export function UnifiedChat() {
       {/* Input */}
       <ChatInput
         onSend={handleSend}
-        disabled={isProcessing}
+        disabled={isProcessing || showSleepQuickLog}
         onFocusChange={handleInputFocusChange}
         externalImage={pendingImageFromHome}
         onExternalImageConsumed={handleExternalImageConsumed}
         initialText={prefillText || undefined}
         onInitialTextConsumed={handlePrefillTextConsumed}
+        onSleepQuickLog={handleSleepQuickLogStart}
+        showSleepButton={settings.sleepTrackingEnabled}
       />
 
       {/* Edit Dialog */}
       <FoodEntryEditDialog
         entry={editingEntry}
         open={!!editingEntry}
-        onOpenChange={(open) => !open && setEditingEntry(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingEntry(null);
+            // Force re-layout after dialog close to prevent rendering artifacts
+            requestAnimationFrame(() => {
+              if (scrollContainerRef.current) {
+                scrollContainerRef.current.style.overflow = 'hidden';
+                requestAnimationFrame(() => {
+                  if (scrollContainerRef.current) {
+                    scrollContainerRef.current.style.overflow = '';
+                  }
+                });
+              }
+            });
+          }
+        }}
         onSave={handleSaveEdit}
         onRefine={handleRefineEdit}
         showCalories={settings.calorieTrackingEnabled}
