@@ -3,7 +3,7 @@ import { Clock } from 'lucide-react';
 import { getFrequentMeals, type FrequentMeal } from '@/db';
 
 interface QuickLogShortcutsProps {
-  onSelect: (prefillText: string) => void;
+  onSelect: (meal: FrequentMeal) => void;
   disabled?: boolean;
 }
 
@@ -39,7 +39,7 @@ export function QuickLogShortcuts({ onSelect, disabled }: QuickLogShortcutsProps
         {frequentMeals.map((meal) => (
           <button
             key={meal.foodName}
-            onClick={() => onSelect(meal.originalName)}
+            onClick={() => onSelect(meal)}
             disabled={disabled}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-colors"
           >

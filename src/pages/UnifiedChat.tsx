@@ -9,6 +9,7 @@ import { SleepQuickLogCard } from '@/components/chat/SleepQuickLogCard';
 import { TrainingLogCard } from '@/components/chat/TrainingLogCard';
 import { QuickReplies } from '@/components/chat/QuickReplies';
 import { QuickLogShortcuts } from '@/components/chat/QuickLogShortcuts';
+import type { FrequentMeal } from '@/db';
 import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
@@ -123,9 +124,6 @@ export function UnifiedChat() {
 
   // Input focus state for showing quick log suggestions
   const [showQuickLogSuggestions, setShowQuickLogSuggestions] = useState(false);
-
-  // Pre-fill text state for quick log shortcuts
-  const [prefillText, setPrefillText] = useState<string | null>(null);
 
   // Sleep quick log state (bypasses AI)
   const [showSleepQuickLog, setShowSleepQuickLog] = useState(false);
@@ -867,16 +865,46 @@ export function UnifiedChat() {
     handleSend(reply, []);
   };
 
-  // Handle quick log shortcut - pre-fill the input instead of direct logging
-  const handleQuickLog = useCallback((prefillText: string) => {
-    setPrefillText(prefillText);
+  // Handle quick log shortcut - directly create pending food card (skip AI)
+  const handleQuickLog = useCallback((meal: FrequentMeal) => {
     setShowQuickLogSuggestions(false);
-  }, []);
+    setShowQuickReplies([]);
 
-  // Callback when prefill text is consumed by ChatInput
-  const handlePrefillTextConsumed = useCallback(() => {
-    setPrefillText(null);
-  }, []);
+    // Add user message showing what they tapped
+    const userSyncId = crypto.randomUUID();
+    addMessage({
+      syncId: userSyncId,
+      type: 'user',
+      content: meal.originalName,
+      timestamp: new Date(),
+    });
+
+    // Add assistant message as anchor for the pending food card
+    const assistantSyncId = crypto.randomUUID();
+    addMessage({
+      syncId: assistantSyncId,
+      type: 'assistant',
+      content: `${meal.originalName} — check the details and confirm.`,
+      timestamp: new Date(),
+    });
+
+    // Set pending food directly with known values
+    const now = new Date();
+    setPendingFood({
+      messageSyncId: assistantSyncId,
+      analysis: {
+        foodName: meal.originalName,
+        protein: meal.protein,
+        calories: meal.calories,
+        confidence: 'high',
+        consumedAt: {
+          parsedDate: format(now, 'yyyy-MM-dd'),
+          parsedTime: format(now, 'HH:mm'),
+        },
+      },
+    });
+  }, [addMessage]);
+
 
   // Handle input focus change for quick log suggestions
   const handleInputFocusChange = useCallback((focused: boolean, hasText: boolean) => {
@@ -1222,8 +1250,6 @@ export function UnifiedChat() {
         onFocusChange={handleInputFocusChange}
         externalImage={pendingImageFromHome}
         onExternalImageConsumed={handleExternalImageConsumed}
-        initialText={prefillText || undefined}
-        onInitialTextConsumed={handlePrefillTextConsumed}
         onSleepQuickLog={handleSleepQuickLogStart}
         showSleepButton={settings.sleepTrackingEnabled}
       />
