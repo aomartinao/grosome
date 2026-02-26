@@ -52,10 +52,6 @@ interface AppState {
   dashboardOnToday: (() => void) | null;
   setDashboardState: (showToday: boolean, onToday: (() => void) | null) => void;
 
-  // Floating action button state
-  showFloatingAddButton: boolean;
-  setShowFloatingAddButton: (show: boolean) => void;
-
   // Pending image from home screen (for quick capture)
   pendingImageFromHome: string | null;
   pendingImageSource: 'camera' | 'gallery' | null;
@@ -227,10 +223,6 @@ export const useStore = create<AppState>()(
         dashboardShowTodayButton: showToday,
         dashboardOnToday: onToday
       }),
-
-      // Floating action button
-      showFloatingAddButton: false,
-      setShowFloatingAddButton: (show) => set({ showFloatingAddButton: show }),
 
       // Pending image from home screen
       pendingImageFromHome: null,
