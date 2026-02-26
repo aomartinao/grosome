@@ -1,43 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { Flame, Dumbbell, ChevronLeft, ChevronRight, History, Moon } from 'lucide-react';
+import { Dumbbell, ChevronLeft, ChevronRight, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '@/store/useStore';
 import { ProgressRing } from './ProgressRing';
-import { PillarCard } from './PillarCard';
+import { StatsChipBar } from './StatsChipBar';
+import { SleepEntryDialog } from './SleepEntryDialog';
+import { TrainingEntryDialog } from './TrainingEntryDialog';
 import { Button } from '@/components/ui/button';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { calculateMPSHits, cn, formatTime } from '@/lib/utils';
 import type { FoodEntry, StreakInfo } from '@/types';
-
-// MPS window thresholds (in minutes)
-// Adding 5 minutes to account for eating time
-const MPS_RED_THRESHOLD = 125;    // 2:05 - still in refractory period
-const MPS_YELLOW_THRESHOLD = 185; // 3:05 - approaching optimal window
-// After 3:05 - green, ready for next hit
-
-function getMPSWindowStatus(lastHitTime: Date | null): {
-  minutesSince: number | null;
-  dotColor: string;
-} {
-  if (!lastHitTime) {
-    return { minutesSince: null, dotColor: 'bg-green-500' };
-  }
-
-  // Ensure lastHitTime is a Date object (might be string from IndexedDB)
-  const hitDate = lastHitTime instanceof Date ? lastHitTime : new Date(lastHitTime);
-  const now = new Date();
-  const minutesSince = Math.floor((now.getTime() - hitDate.getTime()) / 60000);
-
-  if (minutesSince < MPS_RED_THRESHOLD) {
-    return { minutesSince, dotColor: 'bg-red-500' };
-  } else if (minutesSince < MPS_YELLOW_THRESHOLD) {
-    return { minutesSince, dotColor: 'bg-amber-500' };
-  } else {
-    return { minutesSince, dotColor: 'bg-green-500' };
-  }
-}
 
 interface DailyProgressProps {
   entries: FoodEntry[];
@@ -82,40 +54,15 @@ export function DailyProgress({
   onDeleteEntry,
 }: DailyProgressProps) {
   const navigate = useNavigate();
-  const { setShowFloatingAddButton } = useStore();
 
-  // Show floating add button only on today
-  useEffect(() => {
-    setShowFloatingAddButton(isToday);
-    return () => setShowFloatingAddButton(false);
-  }, [isToday, setShowFloatingAddButton]);
+  // Dialog state
+  const [sleepDialogOpen, setSleepDialogOpen] = useState(false);
+  const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
 
   // Swipe state for date navigation
   const swipeStartX = useRef(0);
   const swipeStartY = useRef(0);
   const [isSwiping, setIsSwiping] = useState(false);
-
-  // MPS timer state - for live updating display
-  const [colonVisible, setColonVisible] = useState(true);
-  const [, setTickCount] = useState(0); // Force re-render every minute
-
-  // Blink the colon every second
-  useEffect(() => {
-    if (!mpsTrackingEnabled) return;
-    const blinkInterval = setInterval(() => {
-      setColonVisible((v) => !v);
-    }, 1000);
-    return () => clearInterval(blinkInterval);
-  }, [mpsTrackingEnabled]);
-
-  // Update time display every minute
-  useEffect(() => {
-    if (!mpsTrackingEnabled) return;
-    const minuteInterval = setInterval(() => {
-      setTickCount((c) => c + 1);
-    }, 60000);
-    return () => clearInterval(minuteInterval);
-  }, [mpsTrackingEnabled]);
 
   const totalProtein = useMemo(
     () => entries.reduce((sum, entry) => sum + entry.protein, 0),
@@ -132,20 +79,10 @@ export function DailyProgress({
     [entries, mpsTrackingEnabled]
   );
 
-  const lastMPSHitTime = useMemo(() => {
-    if (mpsHits.length === 0) return null;
-    const lastHit = mpsHits[mpsHits.length - 1];
-    const time = lastHit.consumedAt || lastHit.createdAt;
-    // Ensure it's a Date object
-    return time instanceof Date ? time : new Date(time);
-  }, [mpsHits]);
-
   // Create a Set of MPS hit entry IDs for quick lookup
   const mpsHitIds = useMemo(() => {
     return new Set(mpsHits.map(hit => hit.id).filter(Boolean));
   }, [mpsHits]);
-
-  const mpsWindowStatus = getMPSWindowStatus(lastMPSHitTime);
 
   const effectiveCalorieGoal = calorieGoal || 2000; // Default to 2000 kcal
   const showDualRings = calorieTrackingEnabled;
@@ -262,126 +199,33 @@ export function DailyProgress({
 
       </div>
 
-      {/* Pillar Cards - Sleep & Training */}
-      {(sleepTrackingEnabled || trainingTrackingEnabled) && (
-        <div className="grid grid-cols-2 gap-3 px-4 mt-3">
-          {sleepTrackingEnabled && (
-            <PillarCard
-              icon={Moon}
-              iconColor="text-blue-500"
-              iconBgColor="bg-blue-500/15"
-              title="Sleep"
-              current={`${Math.floor(dateSleepMinutes / 60)}h${dateSleepMinutes % 60 > 0 ? ` ${dateSleepMinutes % 60}m` : ''}`}
-              goal={`${Math.floor(sleepGoalMinutes / 60)}h`}
-              subtitle={isToday ? 'last night' : format(selectedDate, 'MMM d')}
-              isGoalMet={dateSleepMinutes >= sleepGoalMinutes}
-              onClick={isToday ? () => navigate('/coach') : undefined}
-            />
-          )}
-          {trainingTrackingEnabled && (
-            <PillarCard
-              icon={Dumbbell}
-              iconColor="text-emerald-500"
-              iconBgColor="bg-emerald-500/15"
-              title="Training"
-              current={`${dateTrainingSessions}`}
-              goal={isToday ? `${trainingGoalPerWeek}` : '1'}
-              unit={isToday ? 'sessions' : (dateTrainingSessions === 1 ? 'session' : 'sessions')}
-              subtitle={isToday ? 'this week' : format(selectedDate, 'MMM d')}
-              isGoalMet={isToday ? dateTrainingSessions >= trainingGoalPerWeek : dateTrainingSessions > 0}
-              onClick={isToday ? () => navigate('/coach') : undefined}
-            />
-          )}
-        </div>
-      )}
+      {/* Stats Chip Bar */}
+      <StatsChipBar
+        streak={streak}
+        mpsHits={mpsHits.length}
+        mpsTrackingEnabled={mpsTrackingEnabled}
+        sleepMinutes={dateSleepMinutes}
+        sleepTrackingEnabled={sleepTrackingEnabled}
+        trainingSessions={dateTrainingSessions}
+        trainingTrackingEnabled={trainingTrackingEnabled}
+        isToday={isToday}
+        onSleepClick={() => setSleepDialogOpen(true)}
+        onTrainingClick={() => setTrainingDialogOpen(true)}
+      />
 
-      {/* Bottom Section - Stats & Entries */}
+      {/* Entry Dialogs */}
+      <SleepEntryDialog
+        open={sleepDialogOpen}
+        onOpenChange={setSleepDialogOpen}
+        sleepGoalMinutes={sleepGoalMinutes}
+      />
+      <TrainingEntryDialog
+        open={trainingDialogOpen}
+        onOpenChange={setTrainingDialogOpen}
+      />
+
+      {/* Bottom Section - Entries */}
       <div className="mt-6 bg-card rounded-t-3xl shadow-lg flex flex-col min-h-[40vh]">
-        {/* Quick Stats Row */}
-        <div className="flex items-center justify-around px-4 py-4 border-b border-border/50">
-          {/* Streak */}
-          <div className="flex flex-col items-center">
-            <div className="flex items-center gap-1.5 text-orange-500">
-              <Flame className="h-5 w-5" />
-              <span className="text-2xl font-bold">{streak.currentStreak}</span>
-            </div>
-            <span className="text-xs text-muted-foreground">day streak</span>
-          </div>
-
-          {/* Divider */}
-          <div className="h-10 w-px bg-border" />
-
-          {/* MPS or Entries count */}
-          {mpsTrackingEnabled ? (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="flex flex-col items-center focus:outline-none active:opacity-70 transition-opacity">
-                  <div className="flex items-center gap-1.5 text-purple-500">
-                    <Dumbbell className="h-5 w-5" />
-                    <span className="text-2xl font-bold">{mpsHits.length}</span>
-                    <span className="text-sm text-muted-foreground">/3</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">MPS hits</span>
-                    {isToday && mpsHits.length > 0 && mpsWindowStatus.minutesSince !== null && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <span className={cn('w-1.5 h-1.5 rounded-full', mpsWindowStatus.dotColor)} />
-                        <span className="font-mono">
-                          {String(Math.floor(mpsWindowStatus.minutesSince / 60)).padStart(2, '0')}
-                          <span className={colonVisible ? 'opacity-100' : 'opacity-0'}>:</span>
-                          {String(mpsWindowStatus.minutesSince % 60).padStart(2, '0')}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80">
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Muscle Protein Synthesis (MPS)</h4>
-                  <p className="text-sm text-muted-foreground">
-                    MPS is the process by which your body repairs and builds muscle in response to
-                    strength training and protein intake. To stimulate MPS effectively, aim for
-                    ~20–40g of high-quality protein per meal, spaced every 3–5 hours, for 3–4 protein
-                    intakes per day, each providing enough leucine to trigger muscle building (aka MPS hits).
-                    Consistently meeting total daily protein intake drives long-term muscle gain.
-                  </p>
-                  <a
-                    href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5477153/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Source: ISSN Position Stand →
-                  </a>
-                  <div className="pt-2 border-t border-border">
-                    <p className="text-xs text-muted-foreground">
-                      <strong>How it's calculated:</strong> Each meal with ≥25g of protein counts as an MPS hit,
-                      but only if it's been 3+ hours since your last hit. Aim for 3 hits per day.
-                    </p>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <div className="flex flex-col items-center">
-              <span className="text-2xl font-bold text-foreground">{entries.length}</span>
-              <span className="text-xs text-muted-foreground">entries</span>
-            </div>
-          )}
-
-          {/* Divider and Entries count - only shown when MPS is enabled */}
-          {mpsTrackingEnabled && (
-            <>
-              <div className="h-10 w-px bg-border" />
-              <div className="flex flex-col items-center">
-                <span className="text-2xl font-bold text-foreground">{entries.length}</span>
-                <span className="text-xs text-muted-foreground">entries</span>
-              </div>
-            </>
-          )}
-        </div>
-
         {/* Entries Section - Scrollable */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {entries.length > 0 ? (
