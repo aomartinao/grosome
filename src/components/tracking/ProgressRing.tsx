@@ -33,8 +33,8 @@ export function ProgressRing({
 
   // Graduated colors matching coach header bar
   const getGraduatedColors = () => {
-    if (isGoalMet) return { start: '#22c55e', end: '#16a34a' }; // green
-    if (percentage >= 75) return { start: '#84cc16', end: '#65a30d' }; // lime
+    if (isGoalMet) return { start: '#a3e635', end: '#84cc16' }; // lime-400 → lime-500
+    if (percentage >= 75) return { start: '#84cc16', end: '#65a30d' }; // lime-500 → lime-600
     if (percentage >= 50) return { start: '#f59e0b', end: '#d97706' }; // amber
     if (percentage >= 25) return { start: '#f97316', end: '#ea580c' }; // orange
     return { start: '#ef4444', end: '#dc2626' }; // red
@@ -94,7 +94,7 @@ export function ProgressRing({
           )}
           <span className={cn(
             'text-4xl font-bold transition-colors duration-300',
-            isGoalMet ? 'text-green-500' : 'text-foreground'
+            isGoalMet ? 'text-lime-500' : 'text-foreground'
           )}>
             {Math.round(current)}
           </span>
@@ -102,7 +102,7 @@ export function ProgressRing({
             / {goal}{unit}
           </span>
           {isGoalMet && (
-            <span className="text-xs text-green-500 font-medium mt-1 animate-slide-up-fade">
+            <span className="text-xs text-lime-500 font-medium mt-1 animate-slide-up-fade">
               Goal met!
             </span>
           )}

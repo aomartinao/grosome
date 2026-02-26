@@ -9,7 +9,7 @@ const LONG_PRESS_DURATION = 400;
 
 const navItems = [
   { to: '/', icon: Home, label: 'Today', end: true },
-  { to: '/coach', icon: MessageSquare, label: 'Coach', end: true },
+  { to: '/coach', icon: MessageSquare, label: 'Chat', end: true },
   // Plus button goes here (index 2)
   { to: '/insights', icon: Sparkles, label: 'Insights', end: false },
   { to: '/settings', icon: Settings, label: 'Settings', end: true },

@@ -110,7 +110,7 @@ export function Header() {
       case '/coach':
       case '/chat':
       case '/advisor':
-        return 'Coach';
+        return 'Chat';
       case '/insights':
         return 'Insights';
       case '/insights/protein':
@@ -284,7 +284,7 @@ export function Header() {
         <div className="flex h-14 items-center justify-between px-4">
           {isDashboardPage ? renderDashboardTitle() : isCoachPage ? (
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-foreground">Coach</h1>
+              <h1 className="text-xl font-semibold text-foreground">Chat</h1>
               <div className="flex items-baseline gap-1 text-sm">
                 <span className={`font-semibold transition-colors duration-300 ${getProgressTextColor()}`}>
                   {insights.todayProtein}g
