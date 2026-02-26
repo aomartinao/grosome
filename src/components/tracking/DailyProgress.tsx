@@ -42,7 +42,7 @@ export function DailyProgress({
   sleepTrackingEnabled,
   trainingTrackingEnabled,
   sleepGoalMinutes = 480,
-  trainingGoalPerWeek = 4,
+  trainingGoalPerWeek: _trainingGoalPerWeek = 4,
   dateSleepMinutes = 0,
   dateTrainingSessions = 0,
   streak,
