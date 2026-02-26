@@ -11,8 +11,6 @@ interface ChatInputProps {
   onExternalImageConsumed?: () => void;
   initialText?: string;
   onInitialTextConsumed?: () => void;
-  onSleepQuickLog?: () => void;
-  showSleepButton?: boolean;
 }
 
 const MAX_IMAGES = 4;
@@ -25,8 +23,6 @@ export function ChatInput({
   onExternalImageConsumed,
   initialText,
   onInitialTextConsumed,
-  onSleepQuickLog,
-  showSleepButton = false,
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [pendingImages, setPendingImages] = useState<string[]>([]);

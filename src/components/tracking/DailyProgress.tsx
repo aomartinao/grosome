@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { Dumbbell, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { BicepsFlexed, ChevronLeft, ChevronRight, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ProgressRing } from './ProgressRing';
 import { StatsChipBar } from './StatsChipBar';
@@ -262,7 +262,7 @@ export function DailyProgress({
                     </div>
                     <div className="text-right flex items-center gap-1.5">
                       {mpsTrackingEnabled && entry.id && mpsHitIds.has(entry.id) && (
-                        <Dumbbell className="h-3.5 w-3.5 text-purple-500" />
+                        <BicepsFlexed className="h-3.5 w-3.5 text-purple-500" />
                       )}
                       <div>
                         <span className="text-sm font-semibold text-primary">{entry.protein}g</span>

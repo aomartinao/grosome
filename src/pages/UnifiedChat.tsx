@@ -912,18 +912,6 @@ export function UnifiedChat() {
     setShowQuickLogSuggestions(focused && !hasText);
   }, []);
 
-  // Handle sleep quick log button
-  const handleSleepQuickLogStart = useCallback(() => {
-    setShowSleepQuickLog(true);
-    setShowQuickLogSuggestions(false);
-    // Add a user message to show intent
-    addMessage({
-      syncId: crypto.randomUUID(),
-      type: 'user',
-      content: 'Log sleep',
-      timestamp: new Date(),
-    });
-  }, [addMessage]);
 
   // Confirm sleep quick log (no AI)
   const handleSleepQuickLogConfirm = async (data: { duration: number; quality?: string }) => {
@@ -1250,8 +1238,6 @@ export function UnifiedChat() {
         onFocusChange={handleInputFocusChange}
         externalImage={pendingImageFromHome}
         onExternalImageConsumed={handleExternalImageConsumed}
-        onSleepQuickLog={handleSleepQuickLogStart}
-        showSleepButton={settings.sleepTrackingEnabled}
       />
 
       {/* Edit Dialog */}
