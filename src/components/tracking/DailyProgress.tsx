@@ -20,7 +20,6 @@ interface DailyProgressProps {
   sleepTrackingEnabled?: boolean;
   trainingTrackingEnabled?: boolean;
   sleepGoalMinutes?: number;
-  trainingGoalPerWeek?: number;
   dateSleepMinutes?: number;
   dateTrainingSessions?: number;
   streak: StreakInfo;
@@ -42,8 +41,6 @@ export function DailyProgress({
   sleepTrackingEnabled,
   trainingTrackingEnabled,
   sleepGoalMinutes = 480,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  trainingGoalPerWeek,
   dateSleepMinutes = 0,
   dateTrainingSessions = 0,
   streak,

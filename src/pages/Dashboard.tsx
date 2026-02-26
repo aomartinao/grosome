@@ -135,7 +135,6 @@ export function Dashboard() {
         sleepTrackingEnabled={settings.sleepTrackingEnabled}
         trainingTrackingEnabled={settings.trainingTrackingEnabled}
         sleepGoalMinutes={settings.sleepGoalMinutes}
-        trainingGoalPerWeek={settings.trainingGoalPerWeek}
         dateSleepMinutes={dateSleepMinutes}
         dateTrainingSessions={dateTrainingSessions}
         streak={streak}
