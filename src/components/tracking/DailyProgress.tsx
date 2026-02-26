@@ -42,7 +42,8 @@ export function DailyProgress({
   sleepTrackingEnabled,
   trainingTrackingEnabled,
   sleepGoalMinutes = 480,
-  trainingGoalPerWeek: _trainingGoalPerWeek = 4,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  trainingGoalPerWeek,
   dateSleepMinutes = 0,
   dateTrainingSessions = 0,
   streak,
