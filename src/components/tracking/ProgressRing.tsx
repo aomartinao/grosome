@@ -31,10 +31,15 @@ export function ProgressRing({
 
   const gradientId = `progressGradient-${variant}`;
 
-  // Colors based on variant
-  const colors = variant === 'calories'
-    ? { start: isGoalMet ? '#22c55e' : '#f97316', end: isGoalMet ? '#16a34a' : '#ea580c' }  // orange for calories
-    : { start: isGoalMet ? '#22c55e' : '#f5b800', end: isGoalMet ? '#16a34a' : '#d97706' }; // amber for protein
+  // Graduated colors matching coach header bar
+  const getGraduatedColors = () => {
+    if (isGoalMet) return { start: '#22c55e', end: '#16a34a' }; // green
+    if (percentage >= 75) return { start: '#84cc16', end: '#65a30d' }; // lime
+    if (percentage >= 50) return { start: '#f59e0b', end: '#d97706' }; // amber
+    if (percentage >= 25) return { start: '#f97316', end: '#ea580c' }; // orange
+    return { start: '#ef4444', end: '#dc2626' }; // red
+  };
+  const colors = getGraduatedColors();
 
   return (
     <div className={cn('relative inline-flex items-center justify-center', className)}>
