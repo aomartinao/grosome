@@ -7,7 +7,7 @@ interface SyncMeta {
   value: string;
 }
 
-const db = new Dexie('ProteeDB') as Dexie & {
+const db = new Dexie('GrosomeDB') as Dexie & {
   foodEntries: EntityTable<FoodEntry, 'id'>;
   userSettings: EntityTable<UserSettings, 'id'>;
   dailyGoals: EntityTable<DailyGoal, 'id'>;

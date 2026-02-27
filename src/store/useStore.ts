@@ -233,7 +233,7 @@ export const useStore = create<AppState>()(
       }),
     }),
     {
-      name: 'protee-storage',
+      name: 'grosome-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         settings: {

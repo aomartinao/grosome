@@ -1,4 +1,4 @@
-# Security Audit Report - Protee (GRRROMODE v2)
+# Security Audit Report - Grosome (GRRROMODE v2)
 
 **Date:** February 8, 2026
 **Branch:** `grrromode-v2`
@@ -203,7 +203,7 @@ The anthropic-proxy Edge Function allows requests from any origin. Combined with
 Restrict to the actual app domain:
 ```typescript
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://protee.app", // or your domain
+  "Access-Control-Allow-Origin": "https://grosome.app", // or your domain
   ...
 };
 ```

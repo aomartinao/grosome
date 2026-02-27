@@ -264,7 +264,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'protee-auth-storage',
+      name: 'grosome-auth-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         lastSyncTime: state.lastSyncTime,

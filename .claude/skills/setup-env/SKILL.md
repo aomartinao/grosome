@@ -4,7 +4,7 @@ description: Set up or repair the .env file with Supabase credentials. Use when 
 disable-model-invocation: true
 ---
 
-# Setup .env for Protee
+# Setup .env for Grosome
 
 Set up the `.env` file with Supabase credentials for local development and database access.
 

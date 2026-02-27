@@ -8,7 +8,7 @@ if (import.meta.env.DEV) {
   // Dynamic import to avoid bundling debug code in production
   import('./services/sync').then(({ debugCloudEntries, debugLocalEntries, clearSyncMeta, fullSync }) => {
     import('./store/useAuthStore').then(({ useAuthStore }) => {
-      (window as Window & { proteeDebug?: unknown }).proteeDebug = {
+      (window as Window & { grosomeDebug?: unknown }).grosomeDebug = {
         checkCloud: async () => {
           const userId = useAuthStore.getState().user?.id;
           if (!userId) {
@@ -32,7 +32,7 @@ if (import.meta.env.DEV) {
         getUserId: () => useAuthStore.getState().user?.id || null,
       };
 
-      console.log('[Protee] Debug functions available: window.proteeDebug.checkCloud(), checkLocal(), clearSyncMeta(), forceSync(), getUserId()');
+      console.log('[Grosome] Debug functions available: window.grosomeDebug.checkCloud(), checkLocal(), clearSyncMeta(), forceSync(), getUserId()');
     });
   });
 }

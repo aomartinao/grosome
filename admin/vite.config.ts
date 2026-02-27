@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'Protee Admin',
+        name: 'Grosome Admin',
         short_name: 'Admin',
-        description: 'Admin dashboard for Protee protein tracking app',
+        description: 'Admin dashboard for Grosome protein tracking app',
         theme_color: '#6366f1',
         background_color: '#ffffff',
         display: 'standalone',

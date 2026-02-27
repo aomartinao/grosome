@@ -1,4 +1,4 @@
-# Security Audit Report - Protee
+# Security Audit Report - Grosome
 
 **Date:** February 5, 2026
 **Branch:** `security-work` (merged to main)

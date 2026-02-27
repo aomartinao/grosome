@@ -1,7 +1,7 @@
 # CLAUDE.md - Project Instructions for Claude Code
 
 ## Project Context
-- **Project:** Protee (PWA)
+- **Project:** Grosome (PWA)
 - **Stack:** React/TypeScript, Vite, Vercel deployment
 - **Structure:** Multi-worktree setup with parallel development branches
 - **Workflow:** Multiple Claude Code instances working on separate features

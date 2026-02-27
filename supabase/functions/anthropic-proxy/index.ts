@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Allowed origins for CORS — production Vercel domains and local dev
 const ALLOWED_ORIGINS = [
-  "https://protee.vercel.app",
+  "https://grosome.vercel.app",
   "https://grrromode.vercel.app",
   "http://localhost:3000",
   "http://localhost:3001",
@@ -16,9 +16,9 @@ const ALLOWED_ORIGINS = [
 
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") || "";
-  // Allow exact matches and Vercel preview deployments (protee-*.vercel.app)
+  // Allow exact matches and Vercel preview deployments (grosome-*.vercel.app)
   const isAllowed = ALLOWED_ORIGINS.includes(origin)
-    || /^https:\/\/protee-[a-z0-9]+-[a-z0-9-]+\.vercel\.app$/.test(origin)
+    || /^https:\/\/grosome-[a-z0-9]+-[a-z0-9-]+\.vercel\.app$/.test(origin)
     || /^https:\/\/grrromode-[a-z0-9]+-[a-z0-9-]+\.vercel\.app$/.test(origin);
 
   return {

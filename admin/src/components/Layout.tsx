@@ -29,7 +29,7 @@ export function Layout({ children, user }: LayoutProps) {
         <div className="container flex h-14 items-center">
           <div className="flex items-center gap-2 font-semibold">
             <Shield className="h-5 w-5 text-primary" />
-            <span>Protee Admin</span>
+            <span>Grosome Admin</span>
           </div>
 
           <nav className="flex items-center gap-1 ml-8">

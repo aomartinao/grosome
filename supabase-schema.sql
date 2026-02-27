@@ -1,4 +1,4 @@
--- Protee Database Schema for Supabase (v2 - with proper sync support)
+-- Grosome Database Schema for Supabase (v2 - with proper sync support)
 -- Run this in the Supabase SQL Editor to set up your database
 --
 -- IMPORTANT: If upgrading from v1, run the migration section at the bottom

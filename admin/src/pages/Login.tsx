@@ -32,7 +32,7 @@ export function Login() {
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
             <Shield className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle>Protee Admin</CardTitle>
+          <CardTitle>Grosome Admin</CardTitle>
           <CardDescription>
             Sign in with your admin account
           </CardDescription>
