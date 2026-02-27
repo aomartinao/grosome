@@ -243,18 +243,18 @@ export function Dashboard() {
           {fabExpanded && (
             <>
               <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setFabExpanded(false)} />
-              <div className="fixed bottom-28 right-6 z-50 flex flex-col gap-3 items-center">
-                <button
-                  className="h-12 w-12 rounded-full shadow-lg bg-secondary text-secondary-foreground flex items-center justify-center active:scale-95"
-                  onClick={() => { cameraInputRef.current?.click(); triggerHaptic('light'); }}
-                >
-                  <Camera className="h-5 w-5" />
-                </button>
+              <div className="fixed bottom-44 right-6 z-50 flex flex-col gap-3 items-center">
                 <button
                   className="h-12 w-12 rounded-full shadow-lg bg-secondary text-secondary-foreground flex items-center justify-center active:scale-95"
                   onClick={() => { galleryInputRef.current?.click(); triggerHaptic('light'); }}
                 >
                   <ImageIcon className="h-5 w-5" />
+                </button>
+                <button
+                  className="h-12 w-12 rounded-full shadow-lg bg-secondary text-secondary-foreground flex items-center justify-center active:scale-95"
+                  onClick={() => { cameraInputRef.current?.click(); triggerHaptic('light'); }}
+                >
+                  <Camera className="h-5 w-5" />
                 </button>
               </div>
             </>

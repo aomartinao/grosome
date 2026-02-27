@@ -136,6 +136,26 @@ export function UnifiedChat() {
   const isAtBottomRef = useRef(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // iOS keyboard fix: adjust container when virtual keyboard opens
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handleResize = () => {
+      if (chatContainerRef.current) {
+        // When keyboard opens, visualViewport height shrinks
+        const keyboardOffset = window.innerHeight - vv.height;
+        chatContainerRef.current.style.height = keyboardOffset > 0
+          ? `calc(100% - ${keyboardOffset}px)`
+          : '';
+      }
+    };
+
+    vv.addEventListener('resize', handleResize);
+    return () => vv.removeEventListener('resize', handleResize);
+  }, []);
+
   // Load messages on mount
   useEffect(() => {
     loadMessages();
@@ -1037,7 +1057,7 @@ export function UnifiedChat() {
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative">
+    <div ref={chatContainerRef} className="flex flex-col flex-1 min-h-0 overflow-hidden relative">
       {/* Progress feedback floating indicator */}
       {progressFeedback !== null && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20">
