@@ -593,7 +593,7 @@ export function UnifiedChat() {
       updateMessage(loadingSyncId, {
         isLoading: false,
         isError: true,
-        content: `Something went wrong. ${error instanceof Error ? error.message : 'Please try again.'}`,
+        content: `Something went wrong. ${error instanceof Error ? error.message : typeof error === 'string' ? error : (error && typeof error === 'object' && 'message' in error) ? String((error as Record<string, unknown>).message) : 'Please try again.'}`,
       });
     } finally {
       setIsProcessing(false);
