@@ -226,7 +226,7 @@ export function DailyProgress({
       <div className="mt-6 bg-card rounded-t-3xl shadow-lg flex flex-col min-h-[40vh]">
         {/* Entries Section - Scrollable */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
-          {entries.length > 0 ? (
+          {entries.length > 0 && (
             <div className="space-y-1.5">
               {[...entries].sort((a, b) => {
                 const timeA = (a.consumedAt || a.createdAt).getTime();
@@ -273,19 +273,23 @@ export function DailyProgress({
                 </SwipeableRow>
               ))}
             </div>
-          ) : (
+          )}
+
+          {/* Add meal prompt - always visible on Today, "No entries" on past days */}
+          {isToday ? (
             <div
-              className={cn(
-                "flex flex-col items-center justify-center py-8 text-center",
-                isToday && "cursor-pointer hover:bg-muted/30 rounded-xl transition-colors"
-              )}
-              onClick={isToday ? () => navigate('/coach') : undefined}
+              className="flex flex-col items-center justify-center py-8 text-center cursor-pointer hover:bg-muted/30 rounded-xl transition-colors"
+              onClick={() => navigate('/coach')}
             >
               <p className="text-muted-foreground">
-                {isToday ? 'Tap here to log your first meal' : 'No entries this day'}
+                {entries.length > 0 ? 'Tap to add another meal' : 'Tap here to log your first meal'}
               </p>
             </div>
-          )}
+          ) : entries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <p className="text-muted-foreground">No entries this day</p>
+            </div>
+          ) : null}
         </div>
 
         {/* View History Link */}

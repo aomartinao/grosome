@@ -1,4 +1,4 @@
-import { CheckCircle, Dumbbell, XCircle } from 'lucide-react';
+import { CheckCircle, BicepsFlexed, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { FoodEntry } from '@/types';
@@ -65,7 +65,7 @@ export function LoggedFoodCard({
               isCancelled && "line-through text-muted-foreground"
             )}>{entry.foodName}</span>
             {isMPSHit && !isCancelled && (
-              <Dumbbell className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
+              <BicepsFlexed className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
