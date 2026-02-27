@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { format, subDays, addDays, isToday, startOfDay, parseISO } from 'date-fns';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Plus, Camera, Image as ImageIcon } from 'lucide-react';
 import { DailyProgress } from '@/components/tracking/DailyProgress';
 import { FoodEntryEditDialog } from '@/components/FoodEntryEditDialog';
 import { useSettings, useStreak, useRecentEntries, useDeleteEntry } from '@/hooks/useProteinData';
@@ -9,11 +10,87 @@ import { useStore } from '@/store/useStore';
 import { updateFoodEntry } from '@/db';
 import { triggerSync } from '@/store/useAuthStore';
 import { refineAnalysis } from '@/services/ai/client';
+import { compressImage, triggerHaptic, cn } from '@/lib/utils';
 import type { FoodEntry, ConfidenceLevel } from '@/types';
 
+const LONG_PRESS_DURATION = 400;
+
 export function Dashboard() {
+  const navigate = useNavigate();
+  const { setPendingImageFromHome } = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
+
+  // FAB state
+  const [fabExpanded, setFabExpanded] = useState(false);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressRef = useRef(false);
+  const menuJustOpenedRef = useRef(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFabTouchStart = useCallback(() => {
+    isLongPressRef.current = false;
+    menuJustOpenedRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      menuJustOpenedRef.current = true;
+      setFabExpanded(true);
+      triggerHaptic('medium');
+    }, LONG_PRESS_DURATION);
+  }, []);
+
+  const handleFabTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (menuJustOpenedRef.current) {
+      menuJustOpenedRef.current = false;
+      isLongPressRef.current = false;
+      return;
+    }
+    if (fabExpanded) {
+      setFabExpanded(false);
+    } else if (!isLongPressRef.current) {
+      navigate('/coach');
+    }
+    isLongPressRef.current = false;
+  }, [fabExpanded, navigate]);
+
+  const handleFabFileChange = useCallback(async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    source: 'camera' | 'gallery'
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressed = await compressImage(file);
+        setPendingImageFromHome(compressed, source);
+        navigate('/coach');
+      } catch (error) {
+        console.error('Error processing image:', error);
+      }
+    }
+    e.target.value = '';
+    setFabExpanded(false);
+  }, [navigate, setPendingImageFromHome]);
+
+  useEffect(() => {
+    if (!fabExpanded) return;
+    const handler = () => setFabExpanded(false);
+    const timer = setTimeout(() => document.addEventListener('touchstart', handler), 100);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [fabExpanded]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    };
+  }, []);
 
   // Initialize date from URL param or default to today
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -156,6 +233,47 @@ export function Dashboard() {
         showCalories={settings.calorieTrackingEnabled}
         hasAIAccess={hasAIAccess}
       />
+
+      {/* FAB - only on Today */}
+      {isSelectedToday && (
+        <>
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={e => handleFabFileChange(e, 'camera')} className="hidden" />
+          <input ref={galleryInputRef} type="file" accept="image/*" onChange={e => handleFabFileChange(e, 'gallery')} className="hidden" />
+
+          {fabExpanded && (
+            <>
+              <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setFabExpanded(false)} />
+              <div className="fixed bottom-28 right-6 z-50 flex flex-col gap-3 items-center">
+                <button
+                  className="h-12 w-12 rounded-full shadow-lg bg-secondary text-secondary-foreground flex items-center justify-center active:scale-95"
+                  onClick={() => { cameraInputRef.current?.click(); triggerHaptic('light'); }}
+                >
+                  <Camera className="h-5 w-5" />
+                </button>
+                <button
+                  className="h-12 w-12 rounded-full shadow-lg bg-secondary text-secondary-foreground flex items-center justify-center active:scale-95"
+                  onClick={() => { galleryInputRef.current?.click(); triggerHaptic('light'); }}
+                >
+                  <ImageIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </>
+          )}
+
+          <button
+            className={cn(
+              'fixed bottom-24 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center transition-all duration-200',
+              fabExpanded ? 'rotate-45 bg-muted text-muted-foreground' : 'active:scale-95'
+            )}
+            onTouchStart={handleFabTouchStart}
+            onTouchEnd={handleFabTouchEnd}
+            onMouseDown={handleFabTouchStart}
+            onMouseUp={handleFabTouchEnd}
+          >
+            <Plus className="h-7 w-7" />
+          </button>
+        </>
+      )}
     </div>
   );
 }

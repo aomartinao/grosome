@@ -54,6 +54,10 @@ export function ChatInput({
   const handleFocus = () => {
     setIsFocused(true);
     onFocusChange?.(true, text.trim().length > 0);
+    // Scroll input into view when keyboard opens (iOS Safari fix)
+    setTimeout(() => {
+      textInputRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 300);
   };
 
   const handleBlur = () => {

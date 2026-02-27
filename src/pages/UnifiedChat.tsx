@@ -907,9 +907,21 @@ export function UnifiedChat() {
 
 
   // Handle input focus change for quick log suggestions
+  // Use a delay when hiding so that chip onClick can fire before chips unmount
+  const quickLogHideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleInputFocusChange = useCallback((focused: boolean, hasText: boolean) => {
-    // Show suggestions only when focused and input is empty
-    setShowQuickLogSuggestions(focused && !hasText);
+    if (quickLogHideTimerRef.current) {
+      clearTimeout(quickLogHideTimerRef.current);
+      quickLogHideTimerRef.current = null;
+    }
+    if (focused && !hasText) {
+      setShowQuickLogSuggestions(true);
+    } else {
+      // Delay hiding to allow chip tap to register
+      quickLogHideTimerRef.current = setTimeout(() => {
+        setShowQuickLogSuggestions(false);
+      }, 200);
+    }
   }, []);
 
 
