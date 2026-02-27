@@ -46,6 +46,7 @@
 | **Git remote** | Updated to `https://github.com/aomartinao/grosome.git` | Done |
 | **Vercel project** | `protee` → `grosome` | Done (via Vercel API) |
 | **Vercel link** | Re-linked locally to `grosome` | Done |
+| **Supabase edge function** | Redeployed `anthropic-proxy` with new CORS origins | Done |
 
 ### Project Memory
 
@@ -76,17 +77,13 @@
 ## Still TODO
 
 ### Must Do
-1. **Rename local directory:**
+1. ~~**Rename local directory**~~ — pending, do manually:
    ```bash
    cd /Users/mho/clauding && mv protee grosome
    ```
    This ends the current Claude Code session. Start a new one from `~/clauding/grosome`.
 
-2. **Deploy the Supabase edge function** — the CORS changes in `anthropic-proxy/index.ts` need to be deployed:
-   ```bash
-   supabase functions deploy anthropic-proxy
-   ```
-   Until deployed, the old CORS config is live (still allows `protee.vercel.app`). After Vercel starts serving from `grosome.vercel.app`, requests will be blocked by CORS until the edge function is redeployed.
+2. ~~**Deploy the Supabase edge function**~~ — **Done** (2026-02-27). CORS now accepts `grosome.vercel.app`.
 
 3. **Verify Vercel deploy** — confirm the production URL works at `grosome.vercel.app` (or whatever Vercel assigns as the production domain).
 
@@ -109,6 +106,7 @@
 - **Vercel CLI has no rename command** — had to use the Vercel REST API (`PATCH /v9/projects/:id`) with the auth token from `~/Library/Application Support/com.vercel.cli/auth.json`. Not documented well.
 - **Finding Vercel auth token** — `find ~` timed out searching the home directory. Had to guess the macOS-specific config path.
 - **`.gitignore` had an unrelated change** — was already modified before this session (adding `.claude/*.local.md` and `.env*.local`). Excluded it from the rename commit to keep the diff clean.
+- **Supabase CLI not authenticated** — `supabase functions deploy` failed with 401. Non-TTY environment prevented interactive login. Had to run `npx supabase login` manually in a separate terminal, then re-run deploy.
 
 ---
 
