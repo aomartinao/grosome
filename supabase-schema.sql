@@ -306,10 +306,12 @@ create index if not exists api_usage_request_type_idx on api_usage(request_type)
 
 -- Enable RLS on admin tables
 alter table admin_users enable row level security;
+alter table admin_users force row level security;
 alter table admin_api_keys enable row level security;
 alter table api_usage enable row level security;
 
 -- Drop existing admin policies if they exist
+drop policy if exists "Users can check own admin status or admins see all" on admin_users;
 drop policy if exists "Admins can view admin_users" on admin_users;
 drop policy if exists "Admins can insert admin_users" on admin_users;
 drop policy if exists "Admins can delete admin_users" on admin_users;
@@ -321,47 +323,60 @@ drop policy if exists "Admins can view all api_usage" on api_usage;
 drop policy if exists "Service role can insert api_usage" on api_usage;
 drop policy if exists "Users can view own api_usage" on api_usage;
 
--- Admin users policies: only admins can read/write
-create policy "Admins can view admin_users" on admin_users
+-- Helper function to avoid recursive RLS checks on admin_users
+create or replace function is_admin(check_user_id uuid default auth.uid())
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from admin_users where user_id = check_user_id
+  );
+$$;
+
+-- Admin users policies
+create policy "Users can check own admin status or admins see all" on admin_users
   for select using (
-    auth.uid() in (select user_id from admin_users)
+    auth.uid() = user_id
+    or is_admin(auth.uid())
   );
 
 create policy "Admins can insert admin_users" on admin_users
   for insert with check (
-    auth.uid() in (select user_id from admin_users)
+    is_admin(auth.uid())
   );
 
 create policy "Admins can delete admin_users" on admin_users
   for delete using (
-    auth.uid() in (select user_id from admin_users)
+    is_admin(auth.uid())
   );
 
 -- Admin API keys policies: only admins can manage
 create policy "Admins can view admin_api_keys" on admin_api_keys
   for select using (
-    auth.uid() in (select user_id from admin_users)
+    is_admin(auth.uid())
   );
 
 create policy "Admins can insert admin_api_keys" on admin_api_keys
   for insert with check (
-    auth.uid() in (select user_id from admin_users)
+    is_admin(auth.uid())
   );
 
 create policy "Admins can update admin_api_keys" on admin_api_keys
   for update using (
-    auth.uid() in (select user_id from admin_users)
+    is_admin(auth.uid())
   );
 
 create policy "Admins can delete admin_api_keys" on admin_api_keys
   for delete using (
-    auth.uid() in (select user_id from admin_users)
+    is_admin(auth.uid())
   );
 
 -- API usage policies: admins can view all, users can view own
 create policy "Admins can view all api_usage" on api_usage
   for select using (
-    auth.uid() in (select user_id from admin_users)
+    is_admin(auth.uid())
   );
 
 create policy "Users can view own api_usage" on api_usage
@@ -370,10 +385,9 @@ create policy "Users can view own api_usage" on api_usage
   );
 
 -- Service role can insert usage (from Edge Function)
--- Note: Edge Functions use service role key which bypasses RLS
--- But we add this policy for completeness
 create policy "Service role can insert api_usage" on api_usage
-  for insert with check (true);
+  for insert to service_role
+  with check (true);
 
 -- Trigger for admin_api_keys updated_at
 drop trigger if exists update_admin_api_keys_updated_at on admin_api_keys;
@@ -387,9 +401,20 @@ create trigger update_admin_api_keys_updated_at
 
 -- Function to check if a user has an active admin API key
 -- This is safe to call from client as it doesn't expose the key
-create or replace function has_admin_api_key(target_user_id uuid)
+create or replace function has_admin_api_key(target_user_id uuid default auth.uid())
 returns boolean as $$
 begin
+  -- Unauthenticated users cannot inspect key status
+  if auth.uid() is null then
+    return false;
+  end if;
+
+  -- Allow checking own status, or admins checking anyone
+  if auth.uid() != target_user_id
+     and not is_admin(auth.uid()) then
+    return false;
+  end if;
+
   return exists (
     select 1 from admin_api_keys
     where user_id = target_user_id
@@ -482,6 +507,12 @@ begin
 end;
 $$ language plpgsql security definer;
 
+-- Restrict key retrieval function to service_role only
+revoke execute on function get_admin_api_key_for_user(uuid) from public;
+revoke execute on function get_admin_api_key_for_user(uuid) from anon;
+revoke execute on function get_admin_api_key_for_user(uuid) from authenticated;
+grant execute on function get_admin_api_key_for_user(uuid) to service_role;
+
 -- ============================================
 -- VIEWS FOR ADMIN DASHBOARD
 -- ============================================
@@ -500,8 +531,62 @@ select
   exists(select 1 from admin_api_keys aak where aak.user_id = u.id and aak.is_active = true) as has_admin_key
 from auth.users u;
 
--- Grant access to the view for authenticated users (RLS will filter)
-grant select on user_stats to authenticated;
+-- Restrict direct view access to service_role only
+revoke all on user_stats from public;
+revoke all on user_stats from anon;
+revoke all on user_stats from authenticated;
+grant select on user_stats to service_role;
+
+-- Admin-only RPC wrappers for dashboard access
+create or replace function admin_get_user_stats()
+returns table (
+  user_id uuid,
+  email text,
+  signed_up_at timestamp with time zone,
+  last_sign_in_at timestamp with time zone,
+  food_entries_count bigint,
+  chat_messages_count bigint,
+  api_requests_count bigint,
+  last_api_request timestamp with time zone,
+  has_admin_key boolean
+)
+language plpgsql
+security definer
+as $$
+begin
+  if not is_admin(auth.uid()) then
+    raise exception 'Unauthorized: Only admins can view user stats';
+  end if;
+
+  return query select * from user_stats;
+end;
+$$;
+
+create or replace function admin_get_user_by_id(target_user_id uuid)
+returns table (
+  user_id uuid,
+  email text,
+  signed_up_at timestamp with time zone,
+  last_sign_in_at timestamp with time zone,
+  food_entries_count bigint,
+  chat_messages_count bigint,
+  api_requests_count bigint,
+  last_api_request timestamp with time zone,
+  has_admin_key boolean
+)
+language plpgsql
+security definer
+as $$
+begin
+  if not is_admin(auth.uid()) then
+    raise exception 'Unauthorized: Only admins can view user stats';
+  end if;
+
+  return query
+  select * from user_stats us
+  where us.user_id = target_user_id;
+end;
+$$;
 
 -- ============================================
 -- INITIAL ADMIN SETUP
