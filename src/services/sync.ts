@@ -336,7 +336,7 @@ async function pullFromCloud(userId: string, lastPullTime: Date | null): Promise
     // Build query - get entries modified since last pull
     let query = supabase
       .from('food_entries')
-      .select('id, user_id, sync_id, date, source, food_name, protein, calories, confidence, created_at, updated_at, deleted_at')
+      .select('id, user_id, sync_id, date, source, food_name, protein, calories, confidence, image_data, created_at, updated_at, deleted_at')
       .eq('user_id', userId);
 
     // Delta sync: only get changes since last pull
@@ -1095,11 +1095,11 @@ async function syncSettingsBidirectional(userId: string): Promise<boolean> {
       // - Cloud wins for most fields (cloud is authoritative)
       // - For boolean toggles: true wins (if either cloud or local has true, use true)
       //   This ensures enabling a feature on any device propagates everywhere
-      // - For sensitive fields: local wins (security)
+      // - claudeApiKey is local-only and never synced to cloud
       const mergedSettings: UserSettings = {
         ...cloudSettings,
-        // Cloud is authoritative for API key — null means key was cleared, don't fall back to local
-        claudeApiKey: cloudSettings.claudeApiKey,
+        // API key stays local-only by design (never pulled from cloud)
+        claudeApiKey: localSettings?.claudeApiKey,
         // Keep local dietary preferences if cloud doesn't have them
         dietaryPreferences: cloudSettings.dietaryPreferences || localSettings?.dietaryPreferences,
         // For boolean toggles: true wins (enabling on any device should propagate)
@@ -1259,7 +1259,6 @@ export async function pushSettingsToCloud(userId: string, settings: UserSettings
       calorie_tracking_enabled: settings.calorieTrackingEnabled ?? false,
       mps_tracking_enabled: settings.mpsTrackingEnabled ?? false,
       theme: settings.theme,
-      claude_api_key: settings.claudeApiKey ?? null,
       dietary_preferences: settings.dietaryPreferences ?? null,
       advisor_onboarded: settings.advisorOnboarded ?? false,
       advisor_onboarding_started: settings.advisorOnboardingStarted ?? false,
@@ -1316,7 +1315,8 @@ export async function pullSettingsFromCloud(userId: string): Promise<UserSetting
       calorieTrackingEnabled: data.calorie_tracking_enabled ?? false,
       mpsTrackingEnabled: data.mps_tracking_enabled ?? false,
       theme: data.theme as UserSettings['theme'],
-      claudeApiKey: data.claude_api_key ?? undefined,
+      // API key is local-only and intentionally excluded from cloud sync
+      claudeApiKey: undefined,
       dietaryPreferences: data.dietary_preferences ?? undefined,
       advisorOnboarded: data.advisor_onboarded ?? false,
       advisorOnboardingStarted: data.advisor_onboarding_started ?? false,

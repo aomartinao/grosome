@@ -489,7 +489,9 @@ export function Settings() {
               icon={Key}
               iconColor={settings.claudeApiKey ? 'text-green-500' : 'text-muted-foreground'}
               label="Claude API Key"
-              description={settings.claudeApiKey ? 'Configured' : 'Required for food analysis'}
+              description={settings.claudeApiKey
+                ? 'Configured on this device (not synced)'
+                : 'Stored on this device only, not synced'}
               onClick={() => {
                 setApiKey(settings.claudeApiKey || '');
                 setApiKeyDialogOpen(true);
@@ -602,7 +604,7 @@ export function Settings() {
               Claude API Key
             </DialogTitle>
             <DialogDescription>
-              Required for AI-powered food analysis. Your key is stored locally.
+              Required for AI-powered food analysis. Your key is stored on this device only and is never synced to cloud.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
