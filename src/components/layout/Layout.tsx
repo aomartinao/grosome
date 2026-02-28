@@ -4,6 +4,7 @@ import { MobileNav } from './MobileNav';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCallback } from 'react';
+import { motion } from 'framer-motion';
 
 export function Layout() {
   const location = useLocation();
@@ -19,19 +20,27 @@ export function Layout() {
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
       <Header />
-      {disablePullToRefresh ? (
-        <div className="flex-1 pb-20 overflow-hidden flex flex-col min-h-0">
-          <Outlet />
-        </div>
-      ) : (
-        <PullToRefresh
-          onRefresh={handleRefresh}
-          disabled={isSyncing}
-          className="flex-1 pb-20"
-        >
-          <Outlet />
-        </PullToRefresh>
-      )}
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="flex-1 flex flex-col min-h-0 relative"
+      >
+        {disablePullToRefresh ? (
+          <div className="flex-1 pb-20 overflow-hidden flex flex-col min-h-0">
+            <Outlet />
+          </div>
+        ) : (
+          <PullToRefresh
+            onRefresh={handleRefresh}
+            disabled={isSyncing}
+            className="flex-1 pb-20"
+          >
+            <Outlet />
+          </PullToRefresh>
+        )}
+      </motion.div>
       <MobileNav />
     </div>
   );

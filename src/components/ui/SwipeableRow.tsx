@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useId, type ReactNode } from 'react';
 import { Trash2, Edit2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { cn, triggerHaptic } from '@/lib/utils';
 import { useSwipeContext } from '@/context/SwipeContext';
 import {
@@ -226,15 +227,14 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
     <>
       <div
         ref={containerRef}
-        className={cn('relative overflow-hidden rounded-xl touch-pan-y', className)}
+        className={cn('relative overflow-hidden rounded-[24px] touch-pan-y', className)}
       >
         {/* Action buttons - positioned to follow the card edge */}
-        <div
+        <motion.div
           className="absolute inset-y-0 right-0 flex"
-          style={{
-            transform: `translateX(${Math.max(0, translateX + ACTION_WIDTH + extraStretch)}px)`,
-            transition: isAnimating ? 'transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
-          }}
+          initial={false}
+          animate={{ x: Math.max(0, translateX + ACTION_WIDTH + extraStretch) }}
+          transition={isAnimating ? { type: "spring", stiffness: 300, damping: 30 } : { duration: 0 }}
         >
           {onEdit && !isFullSwipe && (
             <button
@@ -260,23 +260,22 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
               {isFullSwipe && <span className="ml-2 font-medium">Delete</span>}
             </button>
           )}
-        </div>
+        </motion.div>
 
         {/* Main content */}
-        <div
-          className="relative bg-muted/50"
-          style={{
-            transform: `translateX(${translateX}px)`,
-            transition: isAnimating ? 'transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
-          }}
+        <motion.div
+          className="relative bg-muted/50 rounded-[24px]"
+          initial={false}
+          animate={{ x: translateX }}
+          transition={isAnimating ? { type: "spring", stiffness: 300, damping: 30 } : { duration: 0 }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onClick={handleContentClick}
-          onTransitionEnd={() => setIsAnimating(false)}
+          onAnimationComplete={() => setIsAnimating(false)}
         >
           {children}
-        </div>
+        </motion.div>
       </div>
 
       {/* Delete Confirmation Dialog */}
