@@ -90,6 +90,8 @@ export interface DailyGoal {
   deletedAt?: Date;          // Soft delete for sync
 }
 
+import type { MenuPick } from '@/services/ai/unified';
+
 export interface ChatMessage {
   id?: number;                  // Local IndexedDB ID
   syncId: string;               // UUID for sync - unique across all devices
@@ -109,6 +111,7 @@ export interface ChatMessage {
   updatedAt?: Date;             // For sync conflict resolution
   deletedAt?: Date;             // Soft delete for sync
   advisorQuickReplies?: string[];  // ["Sweet", "Savory", "No preference"] for advisor mode
+  menuPicks?: MenuPick[];       // For rendering Jewel Card recommendations
 }
 
 export interface DailyStats {
