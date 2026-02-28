@@ -103,7 +103,7 @@ export function ChatInput({
   const canSend = (text.trim() || pendingImages.length > 0) && !disabled;
 
   return (
-    <div className="border-t bg-card p-3 safe-area-inset-bottom overflow-hidden">
+    <div className="bg-white/70 backdrop-blur-xl border-t border-white/40 p-3 safe-area-inset-bottom overflow-hidden shadow-[0_-8px_32px_rgba(0,0,0,0.05)] rounded-t-[24px]">
       {/* Pending images thumbnails */}
       {pendingImages.length > 0 && (
         <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
@@ -155,7 +155,7 @@ export function ChatInput({
             onClick={() => cameraInputRef.current?.click()}
             disabled={disabled || !canAddMore}
           >
-            <Camera className="h-5 w-5 text-muted-foreground" />
+            <Camera strokeWidth={2.5} className="h-5 w-5 text-foreground/60" />
             <span className="sr-only">Take photo</span>
           </Button>
 
@@ -167,7 +167,7 @@ export function ChatInput({
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled || !canAddMore}
           >
-            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+            <ImageIcon strokeWidth={2.5} className="h-5 w-5 text-foreground/60" />
             <span className="sr-only">Upload image</span>
           </Button>
 
@@ -195,7 +195,7 @@ export function ChatInput({
           className="h-10 w-10 rounded-full"
           disabled={!canSend}
         >
-          <Send className="h-5 w-5" />
+          <Send strokeWidth={2.5} className="h-5 w-5" />
           <span className="sr-only">Send</span>
         </Button>
       </form>
