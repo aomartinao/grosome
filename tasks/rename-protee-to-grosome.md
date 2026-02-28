@@ -85,19 +85,16 @@
 
 2. ~~**Deploy the Supabase edge function**~~ — **Done** (2026-02-27). CORS now accepts `grosome.vercel.app`.
 
-3. **Verify Vercel deploy** — confirm the production URL works at `grosome.vercel.app` (or whatever Vercel assigns as the production domain).
+3. ~~**Verify Vercel deploy**~~ — **Done** (2026-02-28). `grosome.vercel.app` added as domain, production deployed. Custom domain `grosome.app` also active. Added `grosome.app` to CORS in Supabase edge function. Old `protee-delta.vercel.app` still works.
 
 ### Nice to Have
-4. **Rename remaining Vercel projects** (`protee-insights`, `protee-ui`, `protee-coach`) if they're still active.
+4. ~~**Rename remaining Vercel projects**~~ — Deleted (`protee-insights`, `protee-ui`, `protee-coach` removed by user).
 
-5. **Update any worktrees** — existing worktrees may have the old remote URL. Run in each:
-   ```bash
-   git remote set-url origin https://github.com/aomartinao/grosome.git
-   ```
+5. ~~**Update any worktrees**~~ — **Done** (2026-02-28). Worktrees share git config with main repo, remote was already `grosome.git`. No action needed.
 
-6. **Update Obsidian vault** — if there are notes referencing "protee" in the vault's `claude/projects/` folder.
+6. ~~**Update Obsidian vault**~~ — **Done** (2026-02-28). Updated 5 references in `claude/claude-code-setup.md` (skills, CI, active projects sections).
 
-7. **Custom domain** — if `grosome.app` or similar is purchased, add it to Vercel and update CORS.
+7. ~~**Custom domain**~~ — **Done** (2026-02-28). `grosome.app` already configured on Vercel, added to CORS in edge function.
 
 ---
 

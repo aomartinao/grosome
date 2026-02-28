@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Allowed origins for CORS — production Vercel domains and local dev
 const ALLOWED_ORIGINS = [
+  "https://grosome.app",
   "https://grosome.vercel.app",
   "https://grrromode.vercel.app",
   "http://localhost:3000",
