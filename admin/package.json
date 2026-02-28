@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "lint": "tsc --noEmit --pretty false",
+    "typecheck": "tsc --noEmit",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/smoke/admin-smoke.test.mjs",
+    "test:smoke": "node --test tests/smoke/admin-smoke.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
