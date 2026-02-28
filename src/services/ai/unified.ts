@@ -258,20 +258,20 @@ function buildUnifiedSystemPrompt(context: UnifiedContext): string {
   };
   const sleepInfo = sleepContext
     ? [
-        sleepContext.sleepLastNight != null ? `LAST NIGHT: ${formatMinutesAsHours(sleepContext.sleepLastNight)}` : '',
-        sleepContext.sleepAvg7Days != null ? `7-DAY AVG: ${formatMinutesAsHours(sleepContext.sleepAvg7Days)}` : '',
-        sleepContext.sleepGoal != null ? `GOAL: ${formatMinutesAsHours(sleepContext.sleepGoal)}` : '',
-      ].filter(Boolean).join(' | ')
+      sleepContext.sleepLastNight != null ? `LAST NIGHT: ${formatMinutesAsHours(sleepContext.sleepLastNight)}` : '',
+      sleepContext.sleepAvg7Days != null ? `7-DAY AVG: ${formatMinutesAsHours(sleepContext.sleepAvg7Days)}` : '',
+      sleepContext.sleepGoal != null ? `GOAL: ${formatMinutesAsHours(sleepContext.sleepGoal)}` : '',
+    ].filter(Boolean).join(' | ')
     : '';
 
   // Training context info
   const trainingInfo = trainingContext
     ? [
-        trainingContext.trainingSessions7Days != null ? `SESSIONS THIS WEEK: ${trainingContext.trainingSessions7Days}` : '',
-        trainingContext.trainingGoalPerWeek != null ? `GOAL: ${trainingContext.trainingGoalPerWeek}/week` : '',
-        trainingContext.daysSinceLastTraining != null ? `DAYS SINCE LAST: ${trainingContext.daysSinceLastTraining}` : '',
-        trainingContext.lastMuscleGroup ? `LAST: ${trainingContext.lastMuscleGroup}` : '',
-      ].filter(Boolean).join(' | ')
+      trainingContext.trainingSessions7Days != null ? `SESSIONS THIS WEEK: ${trainingContext.trainingSessions7Days}` : '',
+      trainingContext.trainingGoalPerWeek != null ? `GOAL: ${trainingContext.trainingGoalPerWeek}/week` : '',
+      trainingContext.daysSinceLastTraining != null ? `DAYS SINCE LAST: ${trainingContext.daysSinceLastTraining}` : '',
+      trainingContext.lastMuscleGroup ? `LAST: ${trainingContext.lastMuscleGroup}` : '',
+    ].filter(Boolean).join(' | ')
     : '';
 
   return `You are ${name}'s protein coach. You help log food AND answer nutrition questions.
@@ -289,8 +289,11 @@ QUESTION indicators (use intent "question"):
 FOOD indicators (use intent "log_food"):
 - Describes something they ATE: "had chicken", "ate 2 eggs", "just finished a shake"
 - Contains food quantities: "200g", "2 eggs", "a bowl of"
-- **Photo of food — ALWAYS return intent "log_food" immediately. NEVER ask "did you eat this?", "planning to have this?", or similar questions. The user is showing you food because they ate it. Log it.**
+- **Photo of food on a plate — ALWAYS return intent "log_food" immediately. NEVER ask "did you eat this?", "planning to have this?", or similar questions. The user is showing you food because they ate it. Log it.**
 - **Photo of nutrition label — extract the values and log immediately.**
+
+MENU indicators (use intent "analyze_menu"):
+- **Photo of a restaurant menu (list of dishes, prices, descriptions) — ALWAYS return intent "analyze_menu" and provide recommendations. Do not log this as food.**
 
 ⚠️ **NEVER return intent "log_food" for a question. If someone asks "What is protein?" that is NOT a food entry — it's a question. Return intent "question" with a helpful answer.**
 
@@ -580,7 +583,7 @@ export async function processUnifiedMessage(
 ): Promise<UnifiedResponse> {
 
   // Build messages
-  const messages: Array<{role: 'user' | 'assistant', content: string | ProxyMessageContent[]}> =
+  const messages: Array<{ role: 'user' | 'assistant', content: string | ProxyMessageContent[] }> =
     conversationHistory.map((msg) => ({
       role: msg.role,
       content: msg.content,
@@ -679,17 +682,17 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
       // Check if this is actually a failed food detection (AI returning "no food" as log_food)
       const foodName = (parsed.food.name || '').toLowerCase();
       const isNoFood = foodName.includes('no food') ||
-                       foodName.includes('unknown') ||
-                       foodName.includes('unable') ||
-                       foodName.includes('not provided') ||
-                       (parsed.food.protein === 0 && parsed.food.confidence === 'low');
+        foodName.includes('unknown') ||
+        foodName.includes('unable') ||
+        foodName.includes('not provided') ||
+        (parsed.food.protein === 0 && parsed.food.confidence === 'low');
 
       if (isNoFood) {
         // Convert to a helpful message instead of showing a 0g food card
         const reasoning = parsed.reasoning || parsed.acknowledgment || '';
         // Check if the reasoning mentions it's a question
         if (reasoning.toLowerCase().includes('question') ||
-            reasoning.toLowerCase().includes('asking for information')) {
+          reasoning.toLowerCase().includes('asking for information')) {
           return {
             intent: 'question' as MessageIntent,
             message: "I can help with nutrition questions! But I'm primarily designed to log food. Try asking in a different way, or describe what you ate.",
