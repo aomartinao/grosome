@@ -571,6 +571,7 @@ export function UnifiedChat() {
         updateMessage(loadingSyncId, {
           isLoading: false,
           content: fullMessage,
+          menuPicks: result.menuPicks, // Store the raw picks for the Carousel
         });
 
         if (result.quickReplies) {
@@ -694,9 +695,9 @@ export function UnifiedChat() {
         calories: updates.calories ?? pendingFood.analysis.calories,
         consumedAt: updates.consumedAt
           ? {
-              parsedDate: format(updates.consumedAt, 'yyyy-MM-dd'),
-              parsedTime: format(updates.consumedAt, 'HH:mm'),
-            }
+            parsedDate: format(updates.consumedAt, 'yyyy-MM-dd'),
+            parsedTime: format(updates.consumedAt, 'HH:mm'),
+          }
           : pendingFood.analysis.consumedAt,
       },
     });

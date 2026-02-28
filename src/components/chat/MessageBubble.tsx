@@ -4,6 +4,7 @@ import type { ChatMessage } from '@/types';
 import { QuickReplies } from './QuickReplies';
 import { TypingIndicator } from './TypingIndicator';
 import { MarkdownText } from './MarkdownText';
+import { MenuPicksCarousel } from './MenuPicksCarousel';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -42,16 +43,13 @@ export function MessageBubble({
               ? 'rounded-2xl rounded-br-md overflow-hidden bg-primary text-primary-foreground'
               : 'rounded-2xl rounded-br-md px-4 py-2 bg-primary text-primary-foreground'
             : message.isError
-            ? 'text-sm py-2 px-3 rounded-xl bg-red-50 text-red-700 border border-red-200'
-            : 'text-foreground/80 text-sm py-1'
+              ? 'text-sm py-2 px-3 rounded-xl bg-red-50 text-red-700 border border-red-200'
+              : 'text-foreground/80 text-sm py-1'
         )}
       >
         {message.isLoading ? (
-          <div className="flex items-center gap-2">
-            <TypingIndicator />
-            {message.isAnalyzingImage && (
-              <span className="text-xs text-muted-foreground">Analyzing photo...</span>
-            )}
+          <div className="px-1">
+            <TypingIndicator isAnalyzing={message.isAnalyzingImage} />
           </div>
         ) : (
           <>
@@ -71,8 +69,8 @@ export function MessageBubble({
                       messageImages.length === 2
                         ? 'w-[calc(50%-2px)] aspect-square'
                         : messageImages.length > 2
-                        ? 'w-[calc(33.333%-2.67px)] aspect-square'
-                        : ''
+                          ? 'w-[calc(33.333%-2.67px)] aspect-square'
+                          : ''
                     )}
                   />
                 ))}
@@ -85,6 +83,9 @@ export function MessageBubble({
                 )}
                 <MarkdownText>{message.content}</MarkdownText>
               </div>
+            )}
+            {message.menuPicks && message.menuPicks.length > 0 && (
+              <MenuPicksCarousel picks={message.menuPicks} />
             )}
             {showQuickReplies && onQuickReply && (
               <QuickReplies
