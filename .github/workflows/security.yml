@@ -52,6 +52,12 @@ jobs:
       - name: Run npm audit (production only)
         run: npm audit --omit=dev --audit-level=moderate
 
+      - name: Install admin dependencies
+        run: npm ci --prefix admin
+
+      - name: Run npm audit (admin production only)
+        run: npm audit --prefix admin --omit=dev --audit-level=moderate
+
   # CodeQL for code vulnerability scanning
   codeql:
     name: CodeQL Analysis

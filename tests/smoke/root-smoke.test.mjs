@@ -32,3 +32,10 @@ test('proxy exposes explicit validation/rate-limit error codes', () => {
   assert.match(proxySource, /PAYLOAD_TOO_LARGE/);
   assert.match(proxySource, /RATE_LIMITED/);
 });
+
+test('settings clear-data flow supports local_only and local_and_cloud modes', () => {
+  const settingsSource = read('src/pages/Settings.tsx');
+  assert.match(settingsSource, /type ClearDataMode = 'local_only' \| 'local_and_cloud'/);
+  assert.match(settingsSource, /setClearDataMode\('local_and_cloud'\)/);
+  assert.match(settingsSource, /setClearDataMode\('local_only'\)/);
+});

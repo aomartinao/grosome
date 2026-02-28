@@ -384,7 +384,7 @@ async function pullFromCloud(userId: string, lastPullTime: Date | null): Promise
         await upsertEntryBySyncId({
           ...entryData,
           id: localEntry?.id, // Preserve local ID if exists
-        } as FoodEntry);
+        } as FoodEntry, localEntry?.id);
         pulledCount++;
       }
     }
@@ -745,7 +745,7 @@ async function pullDailyGoalsFromCloud(
         await upsertDailyGoalBySyncId({
           ...goalData,
           id: localGoal?.id,
-        } as DailyGoal);
+        } as DailyGoal, localGoal?.id);
         pulledCount++;
       }
     }
@@ -905,7 +905,7 @@ async function pullSleepEntriesFromCloud(
         await upsertSleepEntryBySyncId({
           ...entryData,
           id: localEntry?.id,
-        } as SleepEntry);
+        } as SleepEntry, localEntry?.id);
         pulledCount++;
       }
     }
@@ -1048,7 +1048,7 @@ async function pullTrainingEntriesFromCloud(
         await upsertTrainingEntryBySyncId({
           ...entryData,
           id: localEntry?.id,
-        } as TrainingEntry);
+        } as TrainingEntry, localEntry?.id);
         pulledCount++;
       }
     }

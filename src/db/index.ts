@@ -88,6 +88,17 @@ db.version(6).stores({
   trainingEntries: '++id, date',
 });
 
+// Version 7: Index syncId fields for faster sync reconciliation
+db.version(7).stores({
+  foodEntries: '++id, syncId, date, source, createdAt, syncStatus',
+  userSettings: '++id',
+  dailyGoals: '++id, syncId, date',
+  syncMeta: '++id, key',
+  chatMessages: '++id, syncId, timestamp',
+  sleepEntries: '++id, syncId, date',
+  trainingEntries: '++id, syncId, date',
+});
+
 export { db };
 
 /**
@@ -243,17 +254,20 @@ export async function getAllDailyGoalsForSync(): Promise<DailyGoal[]> {
 
 export async function getDailyGoalBySyncId(syncId: string): Promise<DailyGoal | undefined> {
   if (!syncId) return undefined;
-  const goals = await db.dailyGoals.toArray();
-  return goals.find(g => g.syncId === syncId);
+  return db.dailyGoals.where('syncId').equals(syncId).first();
 }
 
-export async function upsertDailyGoalBySyncId(goal: DailyGoal): Promise<void> {
+export async function upsertDailyGoalBySyncId(goal: DailyGoal, existingId?: number): Promise<void> {
   if (!goal.syncId) {
     goal.syncId = crypto.randomUUID();
     await db.dailyGoals.add(goal);
     return;
   }
-  const existing = await getDailyGoalBySyncId(goal.syncId);
+  if (existingId) {
+    await db.dailyGoals.update(existingId, goal);
+    return;
+  }
+  const existing = await db.dailyGoals.where('syncId').equals(goal.syncId).first();
   if (existing?.id) {
     await db.dailyGoals.update(existing.id, goal);
   } else {
@@ -298,14 +312,17 @@ export async function getActiveEntries(): Promise<FoodEntry[]> {
 }
 
 // Upsert entry by syncId (for sync)
-export async function upsertEntryBySyncId(entry: FoodEntry): Promise<void> {
+export async function upsertEntryBySyncId(entry: FoodEntry, existingId?: number): Promise<void> {
   if (!entry.syncId) {
     // No syncId, just add as new
     await db.foodEntries.add(entry);
     return;
   }
-  // Find existing by syncId (manual search since not indexed)
-  const existing = await getEntryBySyncId(entry.syncId);
+  if (existingId) {
+    await db.foodEntries.update(existingId, entry);
+    return;
+  }
+  const existing = await db.foodEntries.where('syncId').equals(entry.syncId).first();
   if (existing?.id) {
     await db.foodEntries.update(existing.id, entry);
   } else {
@@ -313,11 +330,10 @@ export async function upsertEntryBySyncId(entry: FoodEntry): Promise<void> {
   }
 }
 
-// Get entry by syncId (manual filter since syncId isn't indexed)
+// Get entry by syncId (indexed)
 export async function getEntryBySyncId(syncId: string): Promise<FoodEntry | undefined> {
   if (!syncId) return undefined;
-  const entries = await db.foodEntries.toArray();
-  const entry = entries.find(e => e.syncId === syncId);
+  const entry = await db.foodEntries.where('syncId').equals(syncId).first();
   return entry ? normalizeFoodEntryDates(entry) : undefined;
 }
 
@@ -712,17 +728,20 @@ export async function getAllSleepEntriesForSync(): Promise<SleepEntry[]> {
 
 export async function getSleepEntryBySyncId(syncId: string): Promise<SleepEntry | undefined> {
   if (!syncId) return undefined;
-  const entries = await db.sleepEntries.toArray();
-  const entry = entries.find(e => e.syncId === syncId);
+  const entry = await db.sleepEntries.where('syncId').equals(syncId).first();
   return entry ? normalizeSleepEntryDates(entry) : undefined;
 }
 
-export async function upsertSleepEntryBySyncId(entry: SleepEntry): Promise<void> {
+export async function upsertSleepEntryBySyncId(entry: SleepEntry, existingId?: number): Promise<void> {
   if (!entry.syncId) {
     await db.sleepEntries.add(entry);
     return;
   }
-  const existing = await getSleepEntryBySyncId(entry.syncId);
+  if (existingId) {
+    await db.sleepEntries.update(existingId, entry);
+    return;
+  }
+  const existing = await db.sleepEntries.where('syncId').equals(entry.syncId).first();
   if (existing?.id) {
     await db.sleepEntries.update(existing.id, entry);
   } else {
@@ -812,17 +831,20 @@ export async function getAllTrainingEntriesForSync(): Promise<TrainingEntry[]> {
 
 export async function getTrainingEntryBySyncId(syncId: string): Promise<TrainingEntry | undefined> {
   if (!syncId) return undefined;
-  const entries = await db.trainingEntries.toArray();
-  const entry = entries.find(e => e.syncId === syncId);
+  const entry = await db.trainingEntries.where('syncId').equals(syncId).first();
   return entry ? normalizeTrainingEntryDates(entry) : undefined;
 }
 
-export async function upsertTrainingEntryBySyncId(entry: TrainingEntry): Promise<void> {
+export async function upsertTrainingEntryBySyncId(entry: TrainingEntry, existingId?: number): Promise<void> {
   if (!entry.syncId) {
     await db.trainingEntries.add(entry);
     return;
   }
-  const existing = await getTrainingEntryBySyncId(entry.syncId);
+  if (existingId) {
+    await db.trainingEntries.update(existingId, entry);
+    return;
+  }
+  const existing = await db.trainingEntries.where('syncId').equals(entry.syncId).first();
   if (existing?.id) {
     await db.trainingEntries.update(existing.id, entry);
   } else {

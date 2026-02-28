@@ -30,7 +30,7 @@ import { useSettings } from '@/hooks/useProteinData';
 import { useStore } from '@/store/useStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getSupabase } from '@/services/supabase';
-import { db } from '@/db';
+import { db, saveUserSettings } from '@/db';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -158,13 +158,17 @@ interface StorageStats {
   total: number;
 }
 
+type ClearDataMode = 'local_only' | 'local_and_cloud';
+
 export function Settings() {
   const { settings, updateSettings } = useSettings();
-  const { clearMessages } = useStore();
+  const { clearMessages, setSettings } = useStore();
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
   const [apiKey, setApiKey] = useState(settings.claudeApiKey || '');
   const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
+  const [clearDataMode, setClearDataMode] = useState<ClearDataMode>('local_and_cloud');
+  const [isClearingData, setIsClearingData] = useState(false);
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'current'>('idle');
@@ -250,12 +254,91 @@ export function Settings() {
     setApiKeyDialogOpen(false);
   };
 
-  const handleClearData = async () => {
-    await db.foodEntries.clear();
-    await db.dailyGoals.clear();
-    await db.syncMeta.clear();
+  const clearLocalData = async () => {
+    await Promise.all([
+      db.foodEntries.clear(),
+      db.dailyGoals.clear(),
+      db.chatMessages.clear(),
+      db.sleepEntries.clear(),
+      db.trainingEntries.clear(),
+      db.syncMeta.clear(),
+    ]);
+
+    const resetSettings = {
+      defaultGoal: 150,
+      calorieGoal: undefined,
+      proteinTrackingEnabled: true,
+      calorieTrackingEnabled: false,
+      mpsTrackingEnabled: false,
+      theme: 'system' as const,
+      claudeApiKey: undefined,
+      hasAdminApiKey: settings.hasAdminApiKey,
+      dietaryPreferences: undefined,
+      advisorOnboarded: false,
+      advisorOnboardingStarted: false,
+      logWelcomeShown: false,
+      weekStartsOn: 'monday' as const,
+      timeFormat: '24h' as const,
+      unitSystem: 'metric' as const,
+      energyUnit: 'kcal' as const,
+      sleepGoalMinutes: 480,
+      sleepTrackingEnabled: false,
+      trainingGoalPerWeek: 3,
+      trainingTrackingEnabled: false,
+      onboardingCompleted: false,
+    };
+
+    await db.userSettings.clear();
+    await saveUserSettings(resetSettings);
+    setSettings(resetSettings);
+    setApiKey('');
     clearMessages();
-    setClearDataDialogOpen(false);
+  };
+
+  const clearCloudData = async () => {
+    if (!user) return;
+
+    const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Cloud sync is not configured');
+    }
+
+    const tables = ['food_entries', 'daily_goals', 'chat_messages', 'sleep_entries', 'training_entries'];
+    for (const table of tables) {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) {
+        throw new Error(`Failed to clear ${table}: ${error.message}`);
+      }
+    }
+
+    const { error: settingsError } = await supabase
+      .from('user_settings')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (settingsError) {
+      throw new Error(`Failed to clear user_settings: ${settingsError.message}`);
+    }
+  };
+
+  const handleClearData = async () => {
+    setIsClearingData(true);
+    try {
+      if (clearDataMode === 'local_and_cloud') {
+        await clearCloudData();
+      }
+      await clearLocalData();
+      setClearDataDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to clear data:', error);
+      alert(error instanceof Error ? error.message : 'Failed to clear data');
+    } finally {
+      setIsClearingData(false);
+    }
   };
 
   return (
@@ -553,8 +636,11 @@ export function Settings() {
             icon={Trash2}
             iconColor="text-destructive"
             label="Clear All Data"
-            description="Delete all entries and reset app"
-            onClick={() => setClearDataDialogOpen(true)}
+            description="Delete local data, with optional cloud deletion"
+            onClick={() => {
+              setClearDataMode('local_and_cloud');
+              setClearDataDialogOpen(true);
+            }}
           />
         </SettingsSection>
 
@@ -654,15 +740,47 @@ export function Settings() {
               Clear All Data
             </DialogTitle>
             <DialogDescription>
-              This will permanently delete all your food entries, goals, and chat history. This action cannot be undone.
+              Choose whether to clear only this device or both this device and your cloud data. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="flex items-start gap-2 rounded-lg border p-3 cursor-pointer">
+              <input
+                type="radio"
+                name="clear-data-mode"
+                checked={clearDataMode === 'local_and_cloud'}
+                onChange={() => setClearDataMode('local_and_cloud')}
+                className="mt-1"
+              />
+              <div>
+                <div className="text-sm font-medium">Local + Cloud (Recommended)</div>
+                <div className="text-xs text-muted-foreground">
+                  Deletes local entries/settings and removes your synced cloud data.
+                </div>
+              </div>
+            </label>
+            <label className="flex items-start gap-2 rounded-lg border p-3 cursor-pointer">
+              <input
+                type="radio"
+                name="clear-data-mode"
+                checked={clearDataMode === 'local_only'}
+                onChange={() => setClearDataMode('local_only')}
+                className="mt-1"
+              />
+              <div>
+                <div className="text-sm font-medium">Local only</div>
+                <div className="text-xs text-muted-foreground">
+                  Deletes only this device data. Cloud data stays intact and can sync back later.
+                </div>
+              </div>
+            </label>
+          </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setClearDataDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleClearData}>
-              Delete Everything
+            <Button variant="destructive" onClick={handleClearData} disabled={isClearingData}>
+              {isClearingData ? 'Deleting...' : clearDataMode === 'local_and_cloud' ? 'Delete Local + Cloud Data' : 'Delete Local Data'}
             </Button>
           </DialogFooter>
         </DialogContent>
