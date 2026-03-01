@@ -13,11 +13,23 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { clearSyncMeta } from '@/services/sync';
 import { AuthScreen } from '@/components/auth/AuthScreen';
-import { formatDistanceToNow, differenceInMinutes } from 'date-fns';
+import { differenceInSeconds, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 // Warning threshold: show warning if data hasn't synced in this many minutes
 const SYNC_WARNING_THRESHOLD_MINUTES = 10;
+
+function shortTimeAgo(date: Date): string {
+  const now = new Date();
+  const secs = differenceInSeconds(now, date);
+  if (secs < 60) return 'just now';
+  const mins = differenceInMinutes(now, date);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = differenceInHours(now, date);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = differenceInDays(now, date);
+  return `${days}d ago`;
+}
 
 function SectionWrapper({ children }: { children: ReactNode }) {
   return (
@@ -137,7 +149,7 @@ export function SyncStatus() {
     : pendingSyncCount > 0
     ? `${pendingSyncCount} pending`
     : lastSyncTime
-    ? `Synced ${formatDistanceToNow(lastSyncTime, { addSuffix: true })}`
+    ? `Synced ${shortTimeAgo(lastSyncTime)}`
     : 'Not synced';
 
   return (
