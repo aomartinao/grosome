@@ -3,10 +3,11 @@ import type { MenuPick } from '@/services/ai/unified';
 
 interface MenuPicksCarouselProps {
     picks: MenuPick[];
+    onSelectPick?: (pick: MenuPick) => void;
     className?: string;
 }
 
-export function MenuPicksCarousel({ picks, className }: MenuPicksCarouselProps) {
+export function MenuPicksCarousel({ picks, onSelectPick, className }: MenuPicksCarouselProps) {
     if (!picks || picks.length === 0) return null;
 
     return (
@@ -15,7 +16,11 @@ export function MenuPicksCarousel({ picks, className }: MenuPicksCarouselProps) 
                 {picks.map((pick, i) => (
                     <div
                         key={i}
-                        className="snap-start shrink-0 w-[240px] bg-card rounded-2xl p-4 shadow-sm border border-border/50 flex flex-col justify-between"
+                        onClick={() => onSelectPick?.(pick)}
+                        className={cn(
+                            "snap-start shrink-0 w-[200px] bg-card rounded-2xl p-4 shadow-sm border border-border/50 flex flex-col justify-between",
+                            onSelectPick && "cursor-pointer active:scale-[0.98] transition-transform"
+                        )}
                     >
                         <div>
                             <div className="flex items-start justify-between gap-2 mb-2">

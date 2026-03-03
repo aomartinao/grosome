@@ -5,16 +5,19 @@ import { QuickReplies } from './QuickReplies';
 import { TypingIndicator } from './TypingIndicator';
 import { MarkdownText } from './MarkdownText';
 import { MenuPicksCarousel } from './MenuPicksCarousel';
+import type { MenuPick } from '@/services/ai/unified';
 
 interface MessageBubbleProps {
   message: ChatMessage;
   onQuickReply?: (reply: string) => void;
+  onMenuPickSelect?: (pick: MenuPick) => void;
   isLatestMessage?: boolean;
 }
 
 export function MessageBubble({
   message,
   onQuickReply,
+  onMenuPickSelect,
   isLatestMessage,
 }: MessageBubbleProps) {
   const isUser = message.type === 'user';
@@ -85,7 +88,7 @@ export function MessageBubble({
               </div>
             )}
             {message.menuPicks && message.menuPicks.length > 0 && (
-              <MenuPicksCarousel picks={message.menuPicks} />
+              <MenuPicksCarousel picks={message.menuPicks} onSelectPick={onMenuPickSelect} />
             )}
             {showQuickReplies && onQuickReply && (
               <QuickReplies
