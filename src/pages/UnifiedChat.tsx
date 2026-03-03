@@ -37,6 +37,7 @@ import {
   type TrainingAnalysis,
   type SleepContext,
   type TrainingContext,
+  type MenuPick,
 } from '@/services/ai/unified';
 import type { DietaryPreferences, FoodEntry, ConfidenceLevel } from '@/types';
 
@@ -926,6 +927,33 @@ export function UnifiedChat() {
     });
   }, [addMessage]);
 
+  // Handle tap on menu pick card — directly create pending food (no AI call)
+  const handleMenuPickLog = useCallback((pick: MenuPick) => {
+    setShowQuickReplies([]);
+
+    const assistantSyncId = crypto.randomUUID();
+    addMessage({
+      syncId: assistantSyncId,
+      type: 'assistant',
+      content: `${pick.name} — check the details and confirm.`,
+      timestamp: new Date(),
+    });
+
+    const now = new Date();
+    setPendingFood({
+      messageSyncId: assistantSyncId,
+      analysis: {
+        foodName: pick.name,
+        protein: pick.protein,
+        calories: pick.calories,
+        confidence: 'high',
+        consumedAt: {
+          parsedDate: format(now, 'yyyy-MM-dd'),
+          parsedTime: format(now, 'HH:mm'),
+        },
+      },
+    });
+  }, [addMessage]);
 
   // Handle input focus change for quick log suggestions
   // Use a delay when hiding so that chip onClick can fire before chips unmount
@@ -1110,6 +1138,7 @@ export function UnifiedChat() {
               {/* Always render the message bubble */}
               <MessageBubble
                 message={message}
+                onMenuPickSelect={handleMenuPickLog}
                 isLatestMessage={index === messages.length - 1 && !hasConfirmedFood && !hasPendingFood}
               />
 
