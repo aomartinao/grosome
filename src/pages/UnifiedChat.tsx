@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { subDays, format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { MessageBubble } from '@/components/chat/MessageBubble';
+import { MenuPicksCarousel } from '@/components/chat/MenuPicksCarousel';
 import { FoodCard } from '@/components/chat/FoodCard';
 import { LoggedFoodCard } from '@/components/chat/LoggedFoodCard';
 import { SleepLogCard } from '@/components/chat/SleepLogCard';
@@ -928,20 +929,12 @@ export function UnifiedChat() {
   }, [addMessage]);
 
   // Handle tap on menu pick card — directly create pending food (no AI call)
-  const handleMenuPickLog = useCallback((pick: MenuPick) => {
+  const handleMenuPickLog = useCallback((pick: MenuPick, messageSyncId: string) => {
     setShowQuickReplies([]);
-
-    const assistantSyncId = crypto.randomUUID();
-    addMessage({
-      syncId: assistantSyncId,
-      type: 'assistant',
-      content: `${pick.name} — check the details and confirm.`,
-      timestamp: new Date(),
-    });
 
     const now = new Date();
     setPendingFood({
-      messageSyncId: assistantSyncId,
+      messageSyncId,
       analysis: {
         foodName: pick.name,
         protein: pick.protein,
@@ -953,7 +946,7 @@ export function UnifiedChat() {
         },
       },
     });
-  }, [addMessage]);
+  }, []);
 
   // Handle input focus change for quick log suggestions
   // Use a delay when hiding so that chip onClick can fire before chips unmount
@@ -1138,9 +1131,18 @@ export function UnifiedChat() {
               {/* Always render the message bubble */}
               <MessageBubble
                 message={message}
-                onMenuPickSelect={handleMenuPickLog}
                 isLatestMessage={index === messages.length - 1 && !hasConfirmedFood && !hasPendingFood}
               />
+
+              {/* Render menu picks carousel outside MessageBubble for full width */}
+              {message.menuPicks && message.menuPicks.length > 0 && (
+                <div className="mb-2">
+                  <MenuPicksCarousel
+                    picks={message.menuPicks}
+                    onSelectPick={(pick) => handleMenuPickLog(pick, message.syncId)}
+                  />
+                </div>
+              )}
 
               {/* Render LoggedFoodCard below the AI message that confirmed it */}
               {hasConfirmedFood && (
