@@ -554,27 +554,35 @@ ${restrictionsList ? `DIETARY: ${restrictionsList}` : ''}
 - **Leucine**: ~2.5-3g triggers MPS. Eggs ~0.5g each, chicken ~2.5g/100g, whey ~3g/scoop.
 - **Spacing**: 4-5h between meals optimal. Gives muscles time to reset for next MPS window.
 
-## MOTIVATION & ENCOURAGEMENT
+## MOTIVATION & PROGRESS CHECK
 
-When the user asks for motivation, encouragement, "how am I doing", or wants a progress check:
+When the user asks "how am I doing", for motivation, stats, or a progress check — use a **structured format with line breaks** for readability. Do NOT write a single dense paragraph.
 
-1. **Lead with their data** — reference actual numbers: streak, consistency %, protein today, 7-day average, trends
-2. **Highlight one specific positive** — a trend, a strong meal pattern, a recent achievement
-3. **Give one concrete next step** — not "you can do it" but "a chicken breast at dinner would close the gap"
-4. **2-3 sentences max** — micro-coaching, not a speech
+**Format your response like this (use line breaks between sections):**
+
+**Protein:** [7-day avg]g avg — [trend description]
+**Training:** [sessions this week] — [on track / behind / ahead]
+**Sleep:** [average] — [assessment]
+
+[One brief insight or recommendation]
+
+**Example:**
+**Protein:** 165g avg (87% of goal) — climbing steadily
+**Training:** 4 sessions this week — right on target
+**Sleep:** 5.5h avg — below your 7h goal, this affects recovery
+
+Your protein and training are locked in. Prioritizing sleep would amplify your gains.
+
+**Rules:**
+- Always use the structured format with bold labels and line breaks
+- Include only categories the user tracks (skip sleep/training if not enabled)
+- End with ONE actionable insight (max 1 sentence)
+- Reference actual numbers, not vague descriptions
 
 **NEVER use generic cheerleading:**
 - BANNED: "You've got this!", "Keep going!", "Believe in yourself!", "You can do it!", "Stay strong!"
 - BANNED: Deficit framing like "You missed your goal" or "You're falling behind"
-- BANNED: Repeating stats the UI already shows (the header displays current/goal)
-
-**Good patterns to rotate between:**
-- Data insight: "Your 7-day average is 165g — 87% of goal, and climbing. Lunch has been your strongest meal."
-- Recovery: "Yesterday was light, but your 12-day trend tells the real story: you're consistent. One day doesn't break that."
-- Tactical: "You're at 90g with dinner ahead. Salmon or chicken would put you right at target."
-- Compound win: "Good sleep + protein on track + training day — that's the recovery trifecta."
-
-**Test every motivation response:** Could this message only be sent to THIS user, on THIS day? If no, rewrite it.
+- BANNED: Writing everything in one long paragraph
 
 ## TONE
 
@@ -873,11 +881,16 @@ function mealChipForTime(hour: number): string {
 }
 
 export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse {
-  const { insights, nickname, remaining, preferences, preferencesSource } = context;
+  const { insights, nickname, remaining, preferences, preferencesSource, sleepContext, trainingContext } = context;
   const now = new Date();
   const hour = now.getHours();
   const name = nickname ? `${nickname}` : '';
   const logChip = mealChipForTime(hour);
+
+  // Proactive nudge helpers
+  const sleepNotLogged = sleepContext && sleepContext.sleepGoal && !sleepContext.sleepLastNight;
+  const trainingDue = trainingContext && trainingContext.trainingGoalPerWeek &&
+    trainingContext.daysSinceLastTraining !== undefined && trainingContext.daysSinceLastTraining >= 2;
 
   // Check if user has preferences set (acknowledge settings)
   const hasPreferences = preferences.allergies?.length ||
@@ -929,11 +942,11 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     };
   }
 
-  // Streak broken - motivate recovery
-  if (insights.currentStreak === 0 && insights.longestStreak > 3 && insights.daysTracked > 7) {
+  // Streak broken - motivate recovery (only if they haven't started logging today)
+  if (insights.currentStreak === 0 && insights.longestStreak > 3 && insights.daysTracked > 7 && insights.mealsToday === 0) {
     return {
       intent: 'greeting',
-      message: `Fresh start today! Your best was ${insights.longestStreak} days — let's build back up.`,
+      message: `New day, clean slate. Your best streak was ${insights.longestStreak} days — let's start building again.`,
       quickReplies: [logChip, 'How am I doing?'],
     };
   }
@@ -1023,6 +1036,35 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
       intent: 'greeting',
       message: `Trending up! Your 7-day avg (${insights.last7DaysAvg.toFixed(0)}g) is better than before. Keep it going!`,
       quickReplies: [logChip, 'What should I eat?'],
+    };
+  }
+
+  // Proactive sleep nudge — morning (6-11am) when sleep not yet logged
+  if (sleepNotLogged && hour >= 6 && hour < 11) {
+    const sleepGoalH = sleepContext.sleepGoal ? `${Math.round(sleepContext.sleepGoal / 60)}h` : '';
+    return {
+      intent: 'greeting',
+      message: `${name ? name + ', h' : 'H'}ow did you sleep?${sleepGoalH ? ` Your goal is ${sleepGoalH}.` : ''} Log it so I can track your recovery.`,
+      quickReplies: ['Log sleep', logChip],
+    };
+  }
+
+  // Proactive sleep nudge — evening (21-23) when sleep not yet logged
+  if (sleepNotLogged && hour >= 21 && hour <= 23) {
+    return {
+      intent: 'greeting',
+      message: `Before you wind down — did you log last night's sleep?`,
+      quickReplies: ['Log sleep', logChip],
+    };
+  }
+
+  // Proactive training nudge — when overdue based on frequency
+  if (trainingDue) {
+    const days = trainingContext.daysSinceLastTraining!;
+    return {
+      intent: 'greeting',
+      message: `It's been ${days} days since your last workout. Time for a session?`,
+      quickReplies: ['Log training', logChip],
     };
   }
 
