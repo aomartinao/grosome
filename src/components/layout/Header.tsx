@@ -26,6 +26,22 @@ import {
   PopoverContent,
 } from '@/components/ui/popover';
 
+type Particle = { id: number; x: number; burstHeight: number; horizontalDrift: number; size: number; color: string; delay: number; duration: number };
+
+function generateParticles(): Particle[] {
+  const colors = ['bg-lime-300', 'bg-lime-400', 'bg-yellow-300', 'bg-yellow-400', 'bg-amber-300'];
+  return Array.from({ length: 80 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    burstHeight: 20 + Math.random() * 40,
+    horizontalDrift: (Math.random() - 0.5) * 120,
+    size: 3 + Math.random() * 4,
+    color: colors[Math.floor(Math.random() * 5)],
+    delay: Math.random() * 0.5,
+    duration: 1.2 + Math.random() * 0.8,
+  }));
+}
+
 export function Header() {
   const location = useLocation();
   const { user, signOut } = useAuthStore();
@@ -40,39 +56,24 @@ export function Header() {
   const { settings } = useSettings();
 
   // Celebration particles state
-  const [showCelebration, setShowCelebration] = useState(false);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const showCelebration = particles.length > 0;
   const prevPercentRef = useRef(insights.percentComplete);
 
   // Detect when we cross the 100% threshold
   useEffect(() => {
     const wasBelow = prevPercentRef.current < 100;
     const isNowComplete = insights.percentComplete >= 100;
+    prevPercentRef.current = insights.percentComplete;
 
     if (wasBelow && isNowComplete && isCoachPage) {
-      setShowCelebration(true);
-      // Hide after animation completes (longer for full-page drop)
-      const timer = setTimeout(() => setShowCelebration(false), 3500);
-      return () => clearTimeout(timer);
+      const raf = requestAnimationFrame(() => {
+        setParticles(generateParticles());
+      });
+      const timer = setTimeout(() => setParticles([]), 3500);
+      return () => { cancelAnimationFrame(raf); clearTimeout(timer); };
     }
-
-    prevPercentRef.current = insights.percentComplete;
   }, [insights.percentComplete, isCoachPage]);
-
-  // Generate particles for celebration - burst up then fall like water drops
-  const particles = showCelebration ? Array.from({ length: 80 }, (_, i) => {
-    const burstHeight = 20 + Math.random() * 40; // How high they burst up (px)
-    const horizontalDrift = (Math.random() - 0.5) * 120; // Slight horizontal movement
-    return {
-      id: i,
-      x: Math.random() * 100, // % position across the screen
-      burstHeight,
-      horizontalDrift,
-      size: 3 + Math.random() * 4, // Smaller particles (3-7px)
-      color: ['bg-lime-300', 'bg-lime-400', 'bg-yellow-300', 'bg-yellow-400', 'bg-amber-300'][Math.floor(Math.random() * 5)],
-      delay: Math.random() * 0.5, // Staggered start
-      duration: 1.2 + Math.random() * 0.8, // Total animation duration
-    };
-  }) : [];
 
   const getTitle = () => {
     switch (location.pathname) {
