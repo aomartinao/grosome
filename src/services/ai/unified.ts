@@ -872,6 +872,71 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
   }
 }
 
+// Greeting scenario — determines WHAT to talk about (AI generates HOW to say it)
+export interface GreetingScenario {
+  intent: 'greeting';
+  prompt: string;        // Instructions for AI about what to say
+  quickReplies: string[];
+  fallbackMessage: string; // Used when AI is unavailable
+}
+
+// Generate dynamic greeting via AI
+export async function generateDynamicGreeting(
+  apiKey: string | null,
+  scenario: GreetingScenario,
+  useProxy: boolean,
+): Promise<UnifiedResponse> {
+  const systemPrompt = `You are a friendly fitness coach generating a brief chat greeting.
+
+RULES:
+- Write 1-2 sentences MAX. Be warm, natural, varied.
+- NEVER use generic cheerleading ("You've got this!", "Keep going!", "Believe in yourself!")
+- Sound like a friend who actually knows the user's data, not a motivational poster
+- Use the user's numbers when relevant — don't repeat the same phrasing twice
+- Sometimes be playful, sometimes direct, sometimes curious — vary your tone
+- Do NOT use emojis excessively (max 1 per message, and only sometimes)
+- Return ONLY the greeting text, nothing else. No JSON, no markdown.`;
+
+  try {
+    let responseText: string;
+    if (useProxy) {
+      const proxyResponse = await sendProxyRequest({
+        model: 'claude-haiku-3-20240307',
+        max_tokens: 150,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: scenario.prompt }],
+        request_type: 'greeting',
+      });
+      responseText = parseProxyResponse(proxyResponse);
+    } else {
+      if (!apiKey) throw new Error('No API key');
+      const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+      const response = await client.messages.create({
+        model: 'claude-haiku-3-20240307',
+        max_tokens: 150,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: scenario.prompt }],
+      });
+      const textContent = response.content.find((block) => block.type === 'text');
+      if (!textContent || textContent.type !== 'text') throw new Error('No text');
+      responseText = textContent.text;
+    }
+
+    return {
+      intent: 'greeting',
+      message: responseText.trim(),
+      quickReplies: scenario.quickReplies,
+    };
+  } catch {
+    // Fallback to static message if AI call fails
+    return {
+      intent: 'greeting',
+      message: scenario.fallbackMessage,
+      quickReplies: scenario.quickReplies,
+    };
+  }
+}
+
 // Generate a contextual greeting when user opens the chat
 function mealChipForTime(hour: number): string {
   if (hour < 11) return 'Log breakfast';
@@ -880,56 +945,75 @@ function mealChipForTime(hour: number): string {
   return 'Log dinner';
 }
 
-export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse {
+export function generateSmartGreeting(context: UnifiedContext): GreetingScenario | UnifiedResponse {
   const { insights, nickname, remaining, preferences, preferencesSource, sleepContext, trainingContext } = context;
   const now = new Date();
   const hour = now.getHours();
-  const name = nickname ? `${nickname}` : '';
+  const name = nickname || '';
   const logChip = mealChipForTime(hour);
 
   // Proactive nudge helpers
   const sleepNotLogged = sleepContext && sleepContext.sleepGoal && !sleepContext.sleepLastNight;
+  const sleepAvgH = sleepContext?.sleepAvg7Days ? (sleepContext.sleepAvg7Days / 60).toFixed(1) : null;
+  const sleepGoalH = sleepContext?.sleepGoal ? Math.round(sleepContext.sleepGoal / 60) : null;
   const trainingDue = trainingContext && trainingContext.trainingGoalPerWeek &&
     trainingContext.daysSinceLastTraining !== undefined && trainingContext.daysSinceLastTraining >= 2;
 
-  // Check if user has preferences set (acknowledge settings)
+  // Check if user has preferences set
   const hasPreferences = preferences.allergies?.length ||
     preferences.intolerances?.length ||
     preferences.dietaryRestrictions?.length ||
     preferences.sleepTime;
 
-  // Brand new user — first time opening coach
+  // Helper to build context summary for AI prompts
+  const dataContext = [
+    name ? `User's name: ${name}.` : '',
+    `Protein today: ${insights.todayProtein}g / ${insights.todayProtein + remaining}g goal (${remaining}g remaining).`,
+    `Meals today: ${insights.mealsToday}.`,
+    insights.daysTracked > 3 ? `7-day avg: ${insights.last7DaysAvg.toFixed(0)}g. Consistency: ${insights.consistencyPercent.toFixed(0)}%.` : '',
+    insights.currentStreak > 0 ? `Current streak: ${insights.currentStreak} days.` : '',
+    insights.longestStreak > 3 ? `Longest streak: ${insights.longestStreak} days.` : '',
+    sleepAvgH ? `Sleep avg: ${sleepAvgH}h${sleepGoalH ? ` (goal: ${sleepGoalH}h)` : ''}.` : '',
+    sleepContext?.sleepLastNight ? `Last night: ${(sleepContext.sleepLastNight / 60).toFixed(1)}h sleep.` : '',
+    trainingContext?.trainingSessions7Days !== undefined ? `Training this week: ${trainingContext.trainingSessions7Days}${trainingContext.trainingGoalPerWeek ? `/${trainingContext.trainingGoalPerWeek}` : ''} sessions.` : '',
+    trainingContext?.daysSinceLastTraining !== undefined ? `Days since last training: ${trainingContext.daysSinceLastTraining}.` : '',
+    `Time: ${hour}:${String(now.getMinutes()).padStart(2, '0')}.`,
+    insights.trend !== 'stable' ? `Trend: ${insights.trend}.` : '',
+  ].filter(Boolean).join(' ');
+
+  // --- STATIC greetings (no AI needed) ---
+
+  // Brand new user — first time opening coach (static, needs specific structure)
   if (insights.daysTracked === 0 && insights.mealsToday === 0) {
     return {
       intent: 'greeting',
-      message: `${name ? `Hey ${name}! ` : ''}I'm your protein coach. Here's what I can do:\n\n- Type what you ate (e.g. "2 eggs and toast")\n- Take a photo of your meal\n- Photo a restaurant menu for protein picks\n\nTry logging your first meal to see how it works!`,
+      message: `${name ? `Hey ${name}! ` : ''}I'm your protein coach. Here's what I can do:\n\n- Type what you ate — or take a photo\n- Photo a restaurant menu for protein picks\n- Ask me anything about nutrition and training\n\nTry logging your first meal!`,
       quickReplies: [logChip, 'Take a photo', 'What should I eat?'],
     };
   }
 
-  // First time with preferences from settings - acknowledge
+  // First time with preferences from settings
   if (preferencesSource === 'settings' && hasPreferences && insights.daysTracked < 2) {
     const prefSummary = [
       preferences.dietaryRestrictions?.length ? preferences.dietaryRestrictions.join(', ') : '',
       preferences.sleepTime ? `sleep ~${preferences.sleepTime}` : '',
     ].filter(Boolean).join(', ');
-
     return {
       intent: 'greeting',
-      message: `I see you've set up your profile${prefSummary ? ` (${prefSummary})` : ''} — I'll keep that in mind!`,
+      message: `Got your profile${prefSummary ? ` (${prefSummary})` : ''} — I'll keep that in mind when coaching you!`,
       quickReplies: [logChip, 'What should I eat?'],
     };
   }
 
-  // Late night, goal met - celebrate!
+  // --- DYNAMIC greetings (AI generates the text) ---
+
+  // Late night, goal met
   if ((hour >= 21 || hour < 5) && insights.percentComplete >= 100) {
-    const streakMsg = insights.currentStreak >= 3
-      ? ` That's ${insights.currentStreak} days in a row!`
-      : '';
     return {
       intent: 'greeting',
-      message: `${insights.todayProtein}g today — goal crushed! 💪${streakMsg}`,
+      prompt: `Generate a brief celebratory greeting. ${dataContext} The user hit their protein goal today! ${insights.currentStreak >= 3 ? `They're on a ${insights.currentStreak}-day streak.` : ''} Be genuinely impressed but brief.`,
       quickReplies: ['Plan tomorrow', 'Quick snack ideas'],
+      fallbackMessage: `${insights.todayProtein}g today — nailed it!${insights.currentStreak >= 3 ? ` ${insights.currentStreak} days in a row.` : ''}`,
     };
   }
 
@@ -937,87 +1021,99 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
   if (insights.currentStreak >= 7 && insights.percentComplete >= 100) {
     return {
       intent: 'greeting',
-      message: `🔥 ${insights.currentStreak}-day streak! You're on fire, ${name || 'champ'}!`,
+      prompt: `Generate a streak celebration greeting. ${dataContext} This is a ${insights.currentStreak}-day streak — that's impressive! Reference the actual number. Be excited but natural.`,
       quickReplies: ['Show my stats', 'What worked this week?'],
+      fallbackMessage: `${insights.currentStreak}-day streak and counting!`,
     };
   }
 
-  // Streak broken - motivate recovery (only if they haven't started logging today)
+  // Streak broken (only if no meals today)
   if (insights.currentStreak === 0 && insights.longestStreak > 3 && insights.daysTracked > 7 && insights.mealsToday === 0) {
     return {
       intent: 'greeting',
-      message: `New day, clean slate. Your best streak was ${insights.longestStreak} days — let's start building again.`,
+      prompt: `Generate an encouraging recovery greeting. ${dataContext} Their streak broke, but their best was ${insights.longestStreak} days. Don't shame them. Acknowledge it lightly and orient towards today. Be warm, not pitying.`,
       quickReplies: [logChip, 'How am I doing?'],
+      fallbackMessage: `New day. Your best was ${insights.longestStreak} — let's get back at it.`,
     };
   }
 
-  // Pattern-based: weak meal time opportunity
+  // Proactive sleep nudge — morning
+  if (sleepNotLogged && hour >= 6 && hour < 11) {
+    return {
+      intent: 'greeting',
+      prompt: `Generate a morning greeting that asks about sleep. ${dataContext} The user hasn't logged sleep yet today. ${sleepAvgH ? `Their recent average is ${sleepAvgH}h` : ''}${sleepGoalH ? ` and their goal is ${sleepGoalH}h` : ''}. Ask naturally — vary between curious ("Did you catch up on sleep?"), playful ("Another short night or did you actually sleep?"), or direct. 1-2 sentences max.`,
+      quickReplies: ['Log sleep', logChip],
+      fallbackMessage: `Morning! How'd you sleep?`,
+    };
+  }
+
+  // Proactive sleep nudge — evening
+  if (sleepNotLogged && hour >= 21 && hour <= 23) {
+    return {
+      intent: 'greeting',
+      prompt: `Generate an evening greeting that gently reminds about logging sleep. ${dataContext} It's late and they haven't logged last night's sleep. Be casual, not naggy. 1 sentence.`,
+      quickReplies: ['Log sleep', logChip],
+      fallbackMessage: `Hey — did you log last night's sleep?`,
+    };
+  }
+
+  // Proactive training nudge
+  if (trainingDue) {
+    const days = trainingContext.daysSinceLastTraining!;
+    return {
+      intent: 'greeting',
+      prompt: `Generate a greeting that nudges about training. ${dataContext} It's been ${days} days since their last workout. Their goal is ${trainingContext.trainingGoalPerWeek} sessions/week with ${trainingContext.trainingSessions7Days || 0} done this week. Be encouraging, not guilt-tripping. Vary the approach — sometimes ask, sometimes just note it.`,
+      quickReplies: ['Log training', logChip],
+      fallbackMessage: `${days} days since your last session — time to move?`,
+    };
+  }
+
+  // Weak meal time opportunity
   if (insights.weakestMealTime && insights.mealsToday > 0) {
     const mealTimeLabels: Record<string, string> = { breakfast: 'morning', lunch: 'lunch', dinner: 'dinner', snacks: 'snack' };
+    const weakTime = mealTimeLabels[insights.weakestMealTime];
     const strongTime = insights.strongestMealTime ? mealTimeLabels[insights.strongestMealTime] : null;
 
-    if (hour >= 6 && hour < 11 && insights.weakestMealTime === 'breakfast') {
+    if ((hour >= 6 && hour < 11 && insights.weakestMealTime === 'breakfast') ||
+        (hour >= 11 && hour < 15 && insights.weakestMealTime === 'lunch')) {
       return {
         intent: 'greeting',
-        message: `${strongTime ? `Your ${strongTime} game is strong! ` : ''}Breakfast is your opportunity — want some high-protein ideas?`,
-        quickReplies: ['Breakfast ideas', 'Log breakfast'],
-      };
-    }
-
-    if (hour >= 11 && hour < 15 && insights.weakestMealTime === 'lunch') {
-      return {
-        intent: 'greeting',
-        message: `Lunch tends to be lighter on protein for you. Want suggestions to boost it?`,
-        quickReplies: ['Lunch ideas', 'Log lunch'],
+        prompt: `Generate a greeting that highlights a meal time opportunity. ${dataContext} Their weakest protein time is ${weakTime}${strongTime ? ` but ${strongTime} is strong` : ''}. Suggest boosting ${weakTime} protein naturally. Don't lecture.`,
+        quickReplies: [`${weakTime.charAt(0).toUpperCase() + weakTime.slice(1)} ideas`, logChip],
+        fallbackMessage: `${weakTime.charAt(0).toUpperCase() + weakTime.slice(1)} is your protein opportunity today.`,
       };
     }
   }
 
-  // Behind schedule with specific guidance
+  // Behind schedule
   if (insights.isBehindSchedule && remaining > 30) {
     const hoursLeft = insights.hoursUntilSleep || (22 - hour);
     const proteinPerMeal = Math.ceil(remaining / Math.max(1, Math.floor(hoursLeft / 3)));
-
-    if (hoursLeft > 0 && hoursLeft < 6) {
-      return {
-        intent: 'greeting',
-        message: `${remaining}g to go with ${hoursLeft}h left. One solid ${proteinPerMeal}g meal could do it!`,
-        quickReplies: ['Quick high-protein options', logChip],
-      };
-    }
-
     return {
       intent: 'greeting',
-      message: `${name ? name + ', y' : 'Y'}ou're a bit behind schedule. What's the plan?`,
-      quickReplies: ['High-protein ideas', logChip, 'Scan a menu'],
+      prompt: `Generate a greeting for someone behind on their protein goal. ${dataContext} They have ${remaining}g left with about ${hoursLeft}h until sleep. ~${proteinPerMeal}g per remaining meal would do it. Be tactical and helpful, not stressful.`,
+      quickReplies: ['Quick high-protein options', logChip],
+      fallbackMessage: `${remaining}g to go — a solid ${proteinPerMeal}g meal would close the gap.`,
     };
   }
 
-  // On track - positive reinforcement
+  // On track
   if (insights.percentComplete >= 70) {
-    const almostMsg = remaining <= 20
-      ? `Just ${remaining}g away — one snack and you're there!`
-      : `${insights.todayProtein}g down, ${remaining}g to go. Almost there!`;
     return {
       intent: 'greeting',
-      message: almostMsg,
+      prompt: `Generate a brief positive greeting. ${dataContext} They're at ${insights.percentComplete.toFixed(0)}% of their protein goal with ${remaining}g left. Acknowledge progress, maybe suggest how to finish strong. Keep it short.`,
       quickReplies: [logChip, 'What should I eat?'],
+      fallbackMessage: remaining <= 20 ? `${remaining}g away — almost there.` : `${insights.todayProtein}g down, ${remaining}g to go.`,
     };
   }
 
   // Morning, no meals yet
   if (hour >= 6 && hour < 11 && insights.mealsToday === 0) {
-    if (hour >= 9 && insights.strongestMealTime === 'breakfast') {
-      return {
-        intent: 'greeting',
-        message: `${name ? name + ', ' : ''}You're usually crushing breakfast by now! Ready to start?`,
-        quickReplies: ['Breakfast ideas', 'Log breakfast'],
-      };
-    }
     return {
       intent: 'greeting',
-      message: `${name ? 'Morning ' + name + '! ' : 'Morning! '}Ready to start? Log breakfast or ask for ideas.`,
+      prompt: `Generate a morning greeting for someone who hasn't eaten yet. ${dataContext} ${insights.strongestMealTime === 'breakfast' ? 'They usually have a strong breakfast.' : ''} Be friendly, suggest starting the day. Vary between asking what they'll have, noting it's a new day, or being playfully direct.`,
       quickReplies: ['Breakfast ideas', 'Log breakfast'],
+      fallbackMessage: `${name ? `Morning ${name}! ` : 'Morning! '}What's for breakfast?`,
     };
   }
 
@@ -1025,8 +1121,9 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
   if (insights.daysTracked >= 7 && insights.consistencyPercent >= 80) {
     return {
       intent: 'greeting',
-      message: `${insights.consistencyPercent.toFixed(0)}% consistency — solid work! ${insights.todayProtein}g logged so far.`,
+      prompt: `Generate a greeting acknowledging consistency. ${dataContext} They've been ${insights.consistencyPercent.toFixed(0)}% consistent over ${insights.daysTracked} days. Reference the specific number. Be impressed but natural — they're building a real habit.`,
       quickReplies: [logChip, 'High-protein ideas'],
+      fallbackMessage: `${insights.consistencyPercent.toFixed(0)}% consistency. That's a real habit forming.`,
     };
   }
 
@@ -1034,44 +1131,17 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
   if (insights.trend === 'improving' && insights.daysTracked >= 7) {
     return {
       intent: 'greeting',
-      message: `Trending up! Your 7-day avg (${insights.last7DaysAvg.toFixed(0)}g) is better than before. Keep it going!`,
+      prompt: `Generate a greeting about an improving trend. ${dataContext} Their 7-day average is ${insights.last7DaysAvg.toFixed(0)}g and trending up. Reference the actual average. Be encouraging about the trajectory.`,
       quickReplies: [logChip, 'What should I eat?'],
-    };
-  }
-
-  // Proactive sleep nudge — morning (6-11am) when sleep not yet logged
-  if (sleepNotLogged && hour >= 6 && hour < 11) {
-    const sleepGoalH = sleepContext.sleepGoal ? `${Math.round(sleepContext.sleepGoal / 60)}h` : '';
-    return {
-      intent: 'greeting',
-      message: `${name ? name + ', h' : 'H'}ow did you sleep?${sleepGoalH ? ` Your goal is ${sleepGoalH}.` : ''} Log it so I can track your recovery.`,
-      quickReplies: ['Log sleep', logChip],
-    };
-  }
-
-  // Proactive sleep nudge — evening (21-23) when sleep not yet logged
-  if (sleepNotLogged && hour >= 21 && hour <= 23) {
-    return {
-      intent: 'greeting',
-      message: `Before you wind down — did you log last night's sleep?`,
-      quickReplies: ['Log sleep', logChip],
-    };
-  }
-
-  // Proactive training nudge — when overdue based on frequency
-  if (trainingDue) {
-    const days = trainingContext.daysSinceLastTraining!;
-    return {
-      intent: 'greeting',
-      message: `It's been ${days} days since your last workout. Time for a session?`,
-      quickReplies: ['Log training', logChip],
+      fallbackMessage: `${insights.last7DaysAvg.toFixed(0)}g average and climbing.`,
     };
   }
 
   // Default
   return {
     intent: 'greeting',
-    message: `Ready when you are!`,
+    prompt: `Generate a brief, friendly greeting for a protein tracking user. ${dataContext} Just say hi and orient them. Keep it under 2 sentences. Be natural, vary your approach.`,
     quickReplies: [logChip, 'High-protein ideas', 'Scan a menu'],
+    fallbackMessage: `Ready when you are!`,
   };
 }

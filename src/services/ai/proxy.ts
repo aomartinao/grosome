@@ -112,7 +112,8 @@ export async function sendProxyRequest(request: ProxyRequest): Promise<ProxyResp
     if (errorData.code === 'NO_ADMIN_KEY') {
       throw new Error('No admin API key configured for this user');
     }
-    throw new Error(errorData.error || 'Proxy request failed');
+    const errorMsg = typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error) || 'Proxy request failed';
+    throw new Error(errorMsg);
   }
 
   return data as ProxyResponse;
