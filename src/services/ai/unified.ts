@@ -978,7 +978,7 @@ export function generateSmartGreeting(context: UnifiedContext): GreetingScenario
     trainingContext?.trainingSessions7Days !== undefined ? `Training this week: ${trainingContext.trainingSessions7Days}${trainingContext.trainingGoalPerWeek ? `/${trainingContext.trainingGoalPerWeek}` : ''} sessions.` : '',
     trainingContext?.daysSinceLastTraining !== undefined ? `Days since last training: ${trainingContext.daysSinceLastTraining}.` : '',
     `Time: ${hour}:${String(now.getMinutes()).padStart(2, '0')}.`,
-    insights.trend !== 'stable' ? `Trend: ${insights.trend}.` : '',
+    insights.trend !== 'consistent' && insights.trend !== 'new' ? `Trend: ${insights.trend}.` : '',
   ].filter(Boolean).join(' ');
 
   // --- STATIC greetings (no AI needed) ---
