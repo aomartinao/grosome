@@ -554,6 +554,28 @@ ${restrictionsList ? `DIETARY: ${restrictionsList}` : ''}
 - **Leucine**: ~2.5-3g triggers MPS. Eggs ~0.5g each, chicken ~2.5g/100g, whey ~3g/scoop.
 - **Spacing**: 4-5h between meals optimal. Gives muscles time to reset for next MPS window.
 
+## MOTIVATION & ENCOURAGEMENT
+
+When the user asks for motivation, encouragement, "how am I doing", or wants a progress check:
+
+1. **Lead with their data** — reference actual numbers: streak, consistency %, protein today, 7-day average, trends
+2. **Highlight one specific positive** — a trend, a strong meal pattern, a recent achievement
+3. **Give one concrete next step** — not "you can do it" but "a chicken breast at dinner would close the gap"
+4. **2-3 sentences max** — micro-coaching, not a speech
+
+**NEVER use generic cheerleading:**
+- BANNED: "You've got this!", "Keep going!", "Believe in yourself!", "You can do it!", "Stay strong!"
+- BANNED: Deficit framing like "You missed your goal" or "You're falling behind"
+- BANNED: Repeating stats the UI already shows (the header displays current/goal)
+
+**Good patterns to rotate between:**
+- Data insight: "Your 7-day average is 165g — 87% of goal, and climbing. Lunch has been your strongest meal."
+- Recovery: "Yesterday was light, but your 12-day trend tells the real story: you're consistent. One day doesn't break that."
+- Tactical: "You're at 90g with dinner ahead. Salmon or chicken would put you right at target."
+- Compound win: "Good sleep + protein on track + training day — that's the recovery trifecta."
+
+**Test every motivation response:** Could this message only be sent to THIS user, on THIS day? If no, rewrite it.
+
 ## TONE
 
 **Be a friend, not a robot:**
@@ -843,11 +865,19 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
 }
 
 // Generate a contextual greeting when user opens the chat
+function mealChipForTime(hour: number): string {
+  if (hour < 11) return 'Log breakfast';
+  if (hour < 15) return 'Log lunch';
+  if (hour < 17) return 'Log a snack';
+  return 'Log dinner';
+}
+
 export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse {
   const { insights, nickname, remaining, preferences, preferencesSource } = context;
   const now = new Date();
   const hour = now.getHours();
   const name = nickname ? `${nickname}` : '';
+  const logChip = mealChipForTime(hour);
 
   // Check if user has preferences set (acknowledge settings)
   const hasPreferences = preferences.allergies?.length ||
@@ -865,7 +895,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     return {
       intent: 'greeting',
       message: `I see you've set up your profile${prefSummary ? ` (${prefSummary})` : ''} — I'll keep that in mind!`,
-      quickReplies: ['Log a meal', 'What should I eat?'],
+      quickReplies: [logChip, 'What should I eat?'],
     };
   }
 
@@ -886,7 +916,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     return {
       intent: 'greeting',
       message: `🔥 ${insights.currentStreak}-day streak! You're on fire, ${name || 'champ'}!`,
-      quickReplies: ['Keep it going', 'What worked this week?'],
+      quickReplies: ['Show my stats', 'What worked this week?'],
     };
   }
 
@@ -895,7 +925,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     return {
       intent: 'greeting',
       message: `Fresh start today! Your best was ${insights.longestStreak} days — let's build back up.`,
-      quickReplies: ['Log a meal', 'Motivate me'],
+      quickReplies: [logChip, 'How am I doing?'],
     };
   }
 
@@ -930,14 +960,14 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
       return {
         intent: 'greeting',
         message: `${remaining}g to go with ${hoursLeft}h left. One solid ${proteinPerMeal}g meal could do it!`,
-        quickReplies: ['Quick high-protein options', 'Log a meal'],
+        quickReplies: ['Quick high-protein options', logChip],
       };
     }
 
     return {
       intent: 'greeting',
       message: `${name ? name + ', y' : 'Y'}ou're a bit behind schedule. What's the plan?`,
-      quickReplies: ['Suggest something', 'Log a meal', 'Analyze a menu'],
+      quickReplies: ['High-protein ideas', logChip, 'Scan a menu'],
     };
   }
 
@@ -949,7 +979,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     return {
       intent: 'greeting',
       message: almostMsg,
-      quickReplies: ['Log a meal', 'What should I eat?'],
+      quickReplies: [logChip, 'What should I eat?'],
     };
   }
 
@@ -959,13 +989,13 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
       return {
         intent: 'greeting',
         message: `${name ? name + ', ' : ''}You're usually crushing breakfast by now! Ready to start?`,
-        quickReplies: ['Breakfast ideas', 'Log a meal'],
+        quickReplies: ['Breakfast ideas', 'Log breakfast'],
       };
     }
     return {
       intent: 'greeting',
       message: `${name ? 'Morning ' + name + '! ' : 'Morning! '}Ready to start? Log breakfast or ask for ideas.`,
-      quickReplies: ['Breakfast ideas', 'Log a meal'],
+      quickReplies: ['Breakfast ideas', 'Log breakfast'],
     };
   }
 
@@ -974,7 +1004,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     return {
       intent: 'greeting',
       message: `${insights.consistencyPercent.toFixed(0)}% consistency — solid work! ${insights.todayProtein}g logged so far.`,
-      quickReplies: ['Log a meal', 'Suggest something'],
+      quickReplies: [logChip, 'High-protein ideas'],
     };
   }
 
@@ -983,7 +1013,7 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     return {
       intent: 'greeting',
       message: `Trending up! Your 7-day avg (${insights.last7DaysAvg.toFixed(0)}g) is better than before. Keep it going!`,
-      quickReplies: ['Log a meal', 'What should I eat?'],
+      quickReplies: [logChip, 'What should I eat?'],
     };
   }
 
@@ -991,6 +1021,6 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
   return {
     intent: 'greeting',
     message: `Ready when you are!`,
-    quickReplies: ['Log a meal', 'Suggest something', 'Analyze a menu'],
+    quickReplies: [logChip, 'High-protein ideas', 'Scan a menu'],
   };
 }
