@@ -331,7 +331,7 @@ export function UnifiedChat() {
       setShowQuickReplies(scenario.quickReplies);
 
       // Try to generate dynamic greeting in background
-      const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
+      const useProxy = !settings.claudeApiKey && !!settings.hasAdminApiKey;
       const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
       if (hasApiAccess) {
         generateDynamicGreeting(settings.claudeApiKey || null, scenario, useProxy).then((dynamic) => {
