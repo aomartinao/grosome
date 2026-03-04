@@ -30,9 +30,9 @@ export function Onboarding() {
   const { updateSettings } = useSettings();
   const [step, setStep] = useState<Step>('welcome');
   const [proteinGoal, setProteinGoal] = useState(150);
-  const [sleepEnabled, setSleepEnabled] = useState(false);
+  const [sleepEnabled, setSleepEnabled] = useState(true);
   const [sleepGoalMinutes, setSleepGoalMinutes] = useState(480);
-  const [trainingEnabled, setTrainingEnabled] = useState(false);
+  const [trainingEnabled, setTrainingEnabled] = useState(true);
   const [trainingGoalPerWeek, setTrainingGoalPerWeek] = useState(3);
   const [saving, setSaving] = useState(false);
 
@@ -121,8 +121,8 @@ function WelcomeStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
   const { syncData } = useAuthStore();
 
   const capabilities = [
-    { icon: Utensils, color: 'text-primary', bg: 'bg-primary/10', text: 'Tell me what you ate — I\'ll track the protein' },
-    { icon: Camera, color: 'text-amber-500', bg: 'bg-amber-500/10', text: 'Photo a menu — I\'ll find the best protein picks' },
+    { icon: Utensils, color: 'text-primary', bg: 'bg-primary/10', text: 'Tell me what you ate — or just take a picture. I\'ll track the protein.' },
+    { icon: Camera, color: 'text-amber-500', bg: 'bg-amber-500/10', text: 'Photo a restaurant menu — I\'ll find the best protein picks' },
     { icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-500/10', text: 'Ask me anything about nutrition and training' },
   ];
 
@@ -255,7 +255,7 @@ function GoalsStep({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-h-[calc(100vh-120px)] overflow-y-auto pb-4">
       {/* Protein Goal - Primary */}
       <div>
         <StepHeader
@@ -263,7 +263,7 @@ function GoalsStep({
           iconColor="text-primary"
           iconBg="bg-primary/10"
           title="Set Your Goals"
-          subtitle="Protein is the main event. The rest is optional."
+          subtitle="Protein is the main event. Sleep and training help you get the most from it."
         />
       </div>
 
@@ -359,7 +359,10 @@ function GoalsStep({
             <div className="rounded-xl p-2 bg-purple-500/10">
               <Moon className="h-4 w-4 text-purple-500" />
             </div>
-            <span className="font-medium text-sm">Sleep tracking</span>
+            <div>
+              <span className="font-medium text-sm">Sleep tracking</span>
+              <p className="text-xs text-muted-foreground">Your coach will check in about your sleep</p>
+            </div>
           </div>
           <ToggleButton enabled={sleepEnabled} onChange={() => setSleepEnabled(!sleepEnabled)} />
         </div>
@@ -391,7 +394,10 @@ function GoalsStep({
             <div className="rounded-xl p-2 bg-emerald-500/10">
               <Dumbbell className="h-4 w-4 text-emerald-500" />
             </div>
-            <span className="font-medium text-sm">Training tracking</span>
+            <div>
+              <span className="font-medium text-sm">Training tracking</span>
+              <p className="text-xs text-muted-foreground">Track workouts to stay consistent</p>
+            </div>
           </div>
           <ToggleButton enabled={trainingEnabled} onChange={() => setTrainingEnabled(!trainingEnabled)} />
         </div>
