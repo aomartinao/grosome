@@ -885,6 +885,15 @@ export function generateSmartGreeting(context: UnifiedContext): UnifiedResponse 
     preferences.dietaryRestrictions?.length ||
     preferences.sleepTime;
 
+  // Brand new user — first time opening coach
+  if (insights.daysTracked === 0 && insights.mealsToday === 0) {
+    return {
+      intent: 'greeting',
+      message: `${name ? `Hey ${name}! ` : ''}I'm your protein coach. Here's what I can do:\n\n- Type what you ate (e.g. "2 eggs and toast")\n- Take a photo of your meal\n- Photo a restaurant menu for protein picks\n\nTry logging your first meal to see how it works!`,
+      quickReplies: [logChip, 'Take a photo', 'What should I eat?'],
+    };
+  }
+
   // First time with preferences from settings - acknowledge
   if (preferencesSource === 'settings' && hasPreferences && insights.daysTracked < 2) {
     const prefSummary = [
