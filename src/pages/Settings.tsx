@@ -21,6 +21,7 @@ import {
   Flame,
   Shield,
 } from 'lucide-react';
+import { useUpdateAvailable } from '@/hooks/useUpdateAvailable';
 import { version } from '../../package.json';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -170,8 +171,7 @@ export function Settings() {
   const [clearDataMode, setClearDataMode] = useState<ClearDataMode>('local_and_cloud');
   const [isClearingData, setIsClearingData] = useState(false);
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'current'>('idle');
+  const { updateAvailable, updateApp, checkForUpdate, isChecking } = useUpdateAvailable();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const { user } = useAuthStore();
 
@@ -192,40 +192,6 @@ export function Settings() {
     }
     checkAdmin();
   }, [user]);
-
-  const handleCheckForUpdates = async () => {
-    setIsCheckingUpdate(true);
-    setUpdateStatus('checking');
-
-    try {
-      const registration = await navigator.serviceWorker?.getRegistration();
-      if (registration) {
-        await registration.update();
-
-        // Check if there's a waiting worker (new version available)
-        if (registration.waiting) {
-          setUpdateStatus('available');
-          // Tell the waiting service worker to take over
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          // Reload the page to get the new version
-          window.location.reload();
-        } else {
-          setUpdateStatus('current');
-          // Reset status after 2 seconds
-          setTimeout(() => setUpdateStatus('idle'), 2000);
-        }
-      } else {
-        // No service worker, just reload
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Failed to check for updates:', error);
-      // Fallback: just reload the page
-      window.location.reload();
-    } finally {
-      setIsCheckingUpdate(false);
-    }
-  };
 
   // Calculate storage usage
   useEffect(() => {
@@ -655,21 +621,21 @@ export function Settings() {
             AI-powered protein tracking
           </p>
           <Button
-            variant="ghost"
+            variant={updateAvailable ? 'default' : 'ghost'}
             size="sm"
-            onClick={handleCheckForUpdates}
-            disabled={isCheckingUpdate}
-            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={updateAvailable ? updateApp : checkForUpdate}
+            disabled={isChecking}
+            className={updateAvailable ? 'text-xs' : 'text-xs text-muted-foreground hover:text-foreground'}
           >
-            {isCheckingUpdate ? (
+            {isChecking ? (
               <>
                 <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
                 Checking...
               </>
-            ) : updateStatus === 'current' ? (
+            ) : updateAvailable ? (
               <>
                 <RefreshCw className="h-3 w-3 mr-1.5" />
-                Up to date
+                Update now
               </>
             ) : (
               <>
