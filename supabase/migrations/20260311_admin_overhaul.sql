@@ -355,9 +355,9 @@ CREATE POLICY "Authenticated can read app_settings" ON app_settings
 
 -- 3d. Seed default settings
 INSERT INTO app_settings (key, value, description) VALUES
-  ('model_vision', 'claude-sonnet-4-6-20250620', 'Model used for food photo analysis'),
-  ('model_chat', 'claude-sonnet-4-6-20250620', 'Model used for chat conversations'),
-  ('model_greeting', 'claude-sonnet-4-6-20250620', 'Model used for greeting generation')
+  ('model_vision', 'claude-sonnet-4-6', 'Model used for food photo analysis'),
+  ('model_chat', 'claude-sonnet-4-6', 'Model used for chat conversations'),
+  ('model_greeting', 'claude-sonnet-4-6', 'Model used for greeting generation')
 ON CONFLICT (key) DO NOTHING;
 
 -- 3e. Get all app settings

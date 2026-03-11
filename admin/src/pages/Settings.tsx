@@ -14,11 +14,11 @@ import {
 import { formatDateTime } from '@/lib/utils';
 
 const ANTHROPIC_MODELS = [
-  { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-  { id: 'claude-sonnet-4-6-20250620', label: 'Claude Sonnet 4.6' },
-  { id: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
-  { id: 'claude-opus-4-6-20250620', label: 'Claude Opus 4.6' },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+  { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+  { id: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
 ];
 
 const MODEL_SLOTS = [
