@@ -102,6 +102,7 @@ export function UnifiedChat() {
     messagesLoaded,
     addMessage,
     updateMessage,
+    deleteMessage,
     loadMessages,
     pendingImageFromHome,
     setPendingImageFromHome,
@@ -428,15 +429,43 @@ export function UnifiedChat() {
     setPendingTraining(null);
 
     const userSyncId = crypto.randomUUID();
+    const now = new Date();
     addMessage({
       syncId: userSyncId,
       type: 'user',
       content: text,
       images: images.length > 0 ? images : undefined,
-      timestamp: new Date(),
+      timestamp: now,
+      status: 'pending',
+      retryPayload: { text, images },
     });
 
-    await processInput(text, images);
+    await processInput(text, images, userSyncId);
+  };
+
+  // Handle resending a failed message
+  const handleResend = async (userMessageSyncId: string) => {
+    const userMsg = messages.find(m => m.syncId === userMessageSyncId);
+    if (!userMsg?.retryPayload) return;
+
+    // Remove the error assistant message that follows this user message
+    const msgIndex = messages.findIndex(m => m.syncId === userMessageSyncId);
+    if (msgIndex >= 0 && msgIndex < messages.length - 1) {
+      const nextMsg = messages[msgIndex + 1];
+      if (nextMsg.type === 'assistant' && nextMsg.isError) {
+        deleteMessage(nextMsg.syncId);
+      }
+    }
+
+    // Mark user message as pending again
+    updateMessage(userMessageSyncId, { status: 'pending' });
+
+    await processInput(
+      userMsg.retryPayload.text,
+      userMsg.retryPayload.images,
+      userMessageSyncId,
+      userMsg.timestamp, // Preserve original send time for food entry dating
+    );
   };
 
   // Handle consuming external image after it's added to ChatInput
@@ -445,7 +474,8 @@ export function UnifiedChat() {
   }, [setPendingImageFromHome]);
 
   // Process input through unified AI
-  const processInput = async (text: string, images: string[]) => {
+  // originalTimestamp: used on resend to preserve the time the user originally sent the message
+  const processInput = async (text: string, images: string[], userSyncId?: string, originalTimestamp?: Date) => {
     const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
     const useProxy = !settings.claudeApiKey && settings.hasAdminApiKey;
 
@@ -482,6 +512,14 @@ export function UnifiedChat() {
         chatHistory,
         useProxy
       );
+
+      // On resend: override consumedAt with the original message timestamp
+      if (originalTimestamp && result.foodAnalysis) {
+        result.foodAnalysis.consumedAt = {
+          parsedDate: format(originalTimestamp, 'yyyy-MM-dd'),
+          parsedTime: format(originalTimestamp, 'HH:mm'),
+        };
+      }
 
       // Update chat history
       setChatHistory(prev => [
@@ -618,12 +656,21 @@ export function UnifiedChat() {
         }
       }
 
+      // Mark user message as successfully sent
+      if (userSyncId) {
+        updateMessage(userSyncId, { status: undefined, retryPayload: undefined });
+      }
+
     } catch (error) {
       updateMessage(loadingSyncId, {
         isLoading: false,
         isError: true,
         content: `Something went wrong. ${error instanceof Error ? error.message : typeof error === 'string' ? error : 'Please try again.'}`,
       });
+      // Mark user message as failed (enables Resend button)
+      if (userSyncId) {
+        updateMessage(userSyncId, { status: 'failed' });
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -1158,6 +1205,7 @@ export function UnifiedChat() {
               <MessageBubble
                 message={message}
                 isLatestMessage={index === messages.length - 1 && !hasConfirmedFood && !hasPendingFood}
+                onResend={handleResend}
               />
 
               {/* Render menu picks carousel outside MessageBubble for full width */}

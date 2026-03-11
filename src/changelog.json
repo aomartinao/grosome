@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.9.74",
+    "date": "2026-03-11",
+    "changes": [
+      "Resend button on failed messages — retry without retyping",
+      "Messages show 'Sending...' status while waiting for AI",
+      "Resend preserves original timestamp for correct food entry dating",
+      "Fixed rounded corner mismatch on logged food cards"
+    ]
+  },
+  {
     "version": "0.9.73",
     "date": "2026-03-11",
     "changes": [

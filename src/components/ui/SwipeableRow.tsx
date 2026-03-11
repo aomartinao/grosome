@@ -226,7 +226,7 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
     <>
       <div
         ref={containerRef}
-        className={cn('relative overflow-hidden rounded-xl touch-pan-y', className)}
+        className={cn('relative overflow-hidden rounded-[24px] touch-pan-y', className)}
       >
         {/* Action buttons - positioned to follow the card edge */}
         <div
@@ -264,7 +264,7 @@ export function SwipeableRow({ children, onEdit, onDelete, className, itemName }
 
         {/* Main content */}
         <div
-          className="relative bg-muted/50"
+          className="relative"
           style={{
             transform: `translateX(${translateX}px)`,
             transition: isAnimating ? 'transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',

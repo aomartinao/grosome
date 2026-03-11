@@ -107,6 +107,8 @@ export interface ChatMessage {
   isLoading?: boolean;
   isError?: boolean;            // Marks error messages for distinct styling
   isAnalyzingImage?: boolean;   // Shows "Analyzing photo..." in loading state
+  status?: 'pending' | 'failed'; // Message send status (undefined = sent successfully)
+  retryPayload?: { text: string; images: string[] }; // Original input for resend
   timestamp: Date;
   updatedAt?: Date;             // For sync conflict resolution
   deletedAt?: Date;             // Soft delete for sync

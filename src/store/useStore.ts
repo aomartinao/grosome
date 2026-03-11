@@ -5,6 +5,7 @@ import {
   addChatMessage,
   getChatMessages,
   updateChatMessage as updateChatMessageDb,
+  deleteChatMessage as deleteChatMessageDb,
   getUserSettings,
 } from '@/db';
 
@@ -21,6 +22,7 @@ interface AppState {
   messagesLoaded: boolean;
   addMessage: (message: Omit<ChatMessage, 'id'>) => Promise<void>;
   updateMessage: (syncId: string, updates: Partial<ChatMessage>) => Promise<void>;
+  deleteMessage: (syncId: string) => Promise<void>;
   clearMessages: () => void;
   loadMessages: () => Promise<void>;
   reloadMessages: () => Promise<void>;
@@ -156,6 +158,20 @@ export const useStore = create<AppState>()(
             await updateChatMessageDb(message.id, updates);
           } catch (err) {
             console.error('[Store] Failed to update message in DB:', err);
+          }
+        }
+      },
+
+      deleteMessage: async (syncId) => {
+        const message = get().messages.find((m) => m.syncId === syncId);
+        set((state) => ({
+          messages: state.messages.filter((m) => m.syncId !== syncId),
+        }));
+        if (message?.id) {
+          try {
+            await deleteChatMessageDb(message.id);
+          } catch (err) {
+            console.error('[Store] Failed to delete message from DB:', err);
           }
         }
       },
