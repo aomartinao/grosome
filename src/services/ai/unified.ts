@@ -351,6 +351,10 @@ Example questions and good answers:
 }
 \`\`\`
 
+**consumedAt is REQUIRED.** Always include it. If the user mentions "yesterday", "last night", etc., set date to the correct past date. If no time is mentioned, estimate a reasonable time. Today's date is in the CONTEXT section below — use it to calculate relative dates.
+
+**protein and calories MUST be numbers** (not strings, not null). If you can't estimate, use 0.
+
 **Be conversational, not robotic:**
 - **acknowledgment**: Vary it! "Nice!", "Got it!", "Good stuff!", "Solid!", "Ooh, classic!"
 - **reasoning**: Talk TO user, not about them. Sound like a friend.
@@ -750,8 +754,8 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
         message: displayMessage,
         foodAnalysis: {
           foodName: parsed.food.name,
-          protein: parsed.food.protein,
-          calories: parsed.food.calories,
+          protein: Number(parsed.food.protein) || 0,
+          calories: Number(parsed.food.calories) || 0,
           confidence: parsed.food.confidence || 'medium',
           category: parsed.food.category,
           consumedAt,
@@ -776,8 +780,8 @@ function parseUnifiedResponse(responseText: string): UnifiedResponse {
         message: displayMessage,
         foodAnalysis: {
           foodName: parsed.food.name,
-          protein: parsed.food.protein,
-          calories: parsed.food.calories,
+          protein: Number(parsed.food.protein) || 0,
+          calories: Number(parsed.food.calories) || 0,
           confidence: parsed.food.confidence || 'high',
           category: parsed.food.category,
           consumedAt,

@@ -63,7 +63,7 @@ export function DailyProgress({
   const [isSwiping, setIsSwiping] = useState(false);
 
   const totalProtein = useMemo(
-    () => entries.reduce((sum, entry) => sum + entry.protein, 0),
+    () => entries.reduce((sum, entry) => sum + (Number(entry.protein) || 0), 0),
     [entries]
   );
 

@@ -144,7 +144,7 @@ export function WeeklyChart({
 
       for (const entry of dayEntries) {
         const mealType = getMealType(entry);
-        mealTotals[mealType] += entry.protein;
+        mealTotals[mealType] += (Number(entry.protein) || 0);
         totalCalories += entry.calories || 0;
       }
 

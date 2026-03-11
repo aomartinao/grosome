@@ -195,7 +195,7 @@ export function useRemainingProtein(): RemainingProtein {
 
   return useMemo(() => {
     const goal = dailyGoal?.goal ?? settings.defaultGoal;
-    const consumed = (entries || []).reduce((sum, entry) => sum + entry.protein, 0);
+    const consumed = (entries || []).reduce((sum, entry) => sum + (Number(entry.protein) || 0), 0);
     const remaining = Math.max(0, goal - consumed);
 
     return { remaining, goal, consumed };

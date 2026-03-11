@@ -185,7 +185,7 @@ export function FoodCard({
       {/* Nutrition Stats */}
       <div className="flex items-baseline gap-4 mt-3">
         <div>
-          <span className="text-3xl font-bold text-primary">{entry.protein}</span>
+          <span className="text-3xl font-bold text-primary">{Number(entry.protein) || 0}</span>
           <span className="text-sm text-muted-foreground ml-1">g protein</span>
         </div>
         {showCalories && entry.calories !== undefined && entry.calories > 0 && (

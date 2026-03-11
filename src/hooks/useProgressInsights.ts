@@ -140,7 +140,7 @@ export function useProgressInsights(): ProgressInsights {
     for (const entry of entries) {
       const time = entry.consumedAt || entry.createdAt;
       const category = getMealTimeCategory(time);
-      mealTimeProtein[category] += entry.protein;
+      mealTimeProtein[category] += (Number(entry.protein) || 0);
       mealTimeCounts[category]++;
     }
 

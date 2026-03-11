@@ -176,9 +176,10 @@ export function calculateMPSAnalysis<T extends { protein: number; consumedAt?: D
   for (const entry of sortedEntries) {
     const entryTime = (entry.consumedAt || entry.createdAt).getTime();
 
-    if (entry.protein >= MIN_PROTEIN) {
+    const protein = Number(entry.protein) || 0;
+    if (protein >= MIN_PROTEIN) {
       if (lastHitTime === null || entryTime - lastHitTime >= MIN_GAP_MS) {
-        mpsHits.push({ time: new Date(entryTime), protein: entry.protein });
+        mpsHits.push({ time: new Date(entryTime), protein });
         lastHitTime = entryTime;
       }
     }
@@ -279,7 +280,7 @@ export function calculateCategoryBreakdown<T extends { protein: number; foodName
 
   for (const entry of entries) {
     const category = entry.category || categorizeFoodName(entry.foodName);
-    breakdown[category] += entry.protein;
+    breakdown[category] += (Number(entry.protein) || 0);
   }
 
   return breakdown;

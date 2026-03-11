@@ -123,7 +123,7 @@ export function HistoryList({ entries, sleepEntries = [], trainingEntries = [], 
 
       const stats = groups.get(entry.date)!;
       stats.entries.push(entry);
-      stats.totalProtein += entry.protein;
+      stats.totalProtein += (Number(entry.protein) || 0);
       stats.totalCalories += entry.calories || 0;
       stats.goalMet = stats.totalProtein >= stats.goal;
     }
