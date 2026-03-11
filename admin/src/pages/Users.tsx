@@ -10,6 +10,53 @@ import { cn } from '@/lib/utils';
 
 type SortField = 'email' | 'signed_up_at' | 'last_sign_in_at' | 'api_requests_count' | 'food_entries_count';
 type SortDirection = 'asc' | 'desc';
+type StatusFilter = 'all' | 'active' | 'archived' | 'deleted';
+
+function StatusBadge({ status, deletedAt }: { status: UserStats['status']; deletedAt: string | null }) {
+  if (status === 'active') {
+    return (
+      <span className="inline-flex items-center text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+        Active
+      </span>
+    );
+  }
+  if (status === 'archived') {
+    return (
+      <span className="inline-flex items-center text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+        Archived
+      </span>
+    );
+  }
+  // deleted
+  const daysAgo = deletedAt
+    ? Math.floor((Date.now() - new Date(deletedAt).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  return (
+    <span className="inline-flex items-center text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+      Deleted{daysAgo !== null ? ` ${daysAgo}d ago` : ''}
+    </span>
+  );
+}
+
+function KeyBadge({ hasAdminKey, hasCustomKey }: { hasAdminKey: boolean; hasCustomKey: boolean }) {
+  if (hasCustomKey) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+        <Key className="h-3 w-3" />
+        Custom
+      </span>
+    );
+  }
+  if (hasAdminKey) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+        <Key className="h-3 w-3" />
+        Grosome
+      </span>
+    );
+  }
+  return <span className="text-xs text-muted-foreground">-</span>;
+}
 
 export function Users() {
   const [users, setUsers] = useState<UserStats[]>([]);
@@ -17,6 +64,7 @@ export function Users() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('signed_up_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -42,8 +90,23 @@ export function Users() {
     }
   };
 
+  const statusCounts = useMemo(() => {
+    const counts = { all: users.length, active: 0, archived: 0, deleted: 0 };
+    for (const u of users) {
+      if (u.status === 'active') counts.active++;
+      else if (u.status === 'archived') counts.archived++;
+      else if (u.status === 'deleted') counts.deleted++;
+    }
+    return counts;
+  }, [users]);
+
   const filteredAndSortedUsers = useMemo(() => {
     let result = [...users];
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      result = result.filter((u) => u.status === statusFilter);
+    }
 
     // Filter by search query
     if (searchQuery) {
@@ -87,7 +150,7 @@ export function Users() {
     });
 
     return result;
-  }, [users, searchQuery, sortField, sortDirection]);
+  }, [users, searchQuery, sortField, sortDirection, statusFilter]);
 
   if (loading) {
     return (
@@ -112,6 +175,13 @@ export function Users() {
     </button>
   );
 
+  const statusFilters: { value: StatusFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'active', label: 'Active' },
+    { value: 'archived', label: 'Archived' },
+    { value: 'deleted', label: 'Deleted' },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -127,6 +197,27 @@ export function Users() {
         </div>
       </div>
 
+      {/* Status filter tabs */}
+      <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
+        {statusFilters.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setStatusFilter(f.value)}
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+              statusFilter === f.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {f.label}
+            <span className="ml-1.5 text-xs text-muted-foreground">
+              {statusCounts[f.value]}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -135,6 +226,11 @@ export function Users() {
                 <tr className="border-b">
                   <th className="text-left p-4">
                     <SortButton field="email">Email</SortButton>
+                  </th>
+                  <th className="text-left p-4">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </span>
                   </th>
                   <th className="text-left p-4">
                     <SortButton field="signed_up_at">Signed Up</SortButton>
@@ -165,6 +261,9 @@ export function Users() {
                     <td className="p-4">
                       <span className="font-medium">{user.email}</span>
                     </td>
+                    <td className="p-4">
+                      <StatusBadge status={user.status} deletedAt={user.deleted_at} />
+                    </td>
                     <td className="p-4 text-sm text-muted-foreground">
                       {formatDate(user.signed_up_at)}
                     </td>
@@ -178,14 +277,7 @@ export function Users() {
                       {user.api_requests_count}
                     </td>
                     <td className="p-4 text-center">
-                      {user.has_admin_key ? (
-                        <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                          <Key className="h-3 w-3" />
-                          Active
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
+                      <KeyBadge hasAdminKey={user.has_admin_key} hasCustomKey={user.has_custom_key} />
                     </td>
                     <td className="p-4">
                       <Link to={`/users/${user.user_id}`}>

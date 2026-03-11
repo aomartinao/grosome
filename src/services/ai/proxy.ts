@@ -129,3 +129,48 @@ export function parseProxyResponse(response: ProxyResponse): string {
   }
   return textContent.text;
 }
+
+// --- Model Configuration ---
+
+interface ModelConfig {
+  vision: string;
+  chat: string;
+  greeting: string;
+}
+
+const FALLBACK_CONFIG: ModelConfig = {
+  vision: 'claude-sonnet-4-20250514',
+  chat: 'claude-sonnet-4-20250514',
+  greeting: 'claude-haiku-4-5-20251001',
+};
+
+let cachedConfig: ModelConfig | null = null;
+
+export async function getModelConfig(): Promise<ModelConfig> {
+  if (cachedConfig) return cachedConfig;
+
+  const supabase = getSupabase();
+  if (!supabase) return FALLBACK_CONFIG;
+
+  try {
+    const { data, error } = await supabase.rpc('get_app_settings');
+    if (error || !data) return FALLBACK_CONFIG;
+
+    const settings = Object.fromEntries(
+      (data as Array<{ key: string; value: string }>).map((r) => [r.key, r.value])
+    );
+
+    cachedConfig = {
+      vision: settings.model_vision || FALLBACK_CONFIG.vision,
+      chat: settings.model_chat || FALLBACK_CONFIG.chat,
+      greeting: settings.model_greeting || FALLBACK_CONFIG.greeting,
+    };
+    return cachedConfig;
+  } catch {
+    return FALLBACK_CONFIG;
+  }
+}
+
+export function clearModelConfigCache() {
+  cachedConfig = null;
+}

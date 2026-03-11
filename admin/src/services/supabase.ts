@@ -29,7 +29,10 @@ export interface UserStats {
   chat_messages_count: number;
   api_requests_count: number;
   last_api_request: string | null;
-  has_admin_key: boolean;
+  has_admin_key: boolean;  // keep for backward compat — now means "has grosome key (global or custom)"
+  has_custom_key: boolean;
+  status: 'active' | 'archived' | 'deleted';
+  deleted_at: string | null;
 }
 
 // API usage record type
@@ -155,6 +158,38 @@ export async function revokeApiKeyForUser(userId: string): Promise<boolean> {
   return data === true;
 }
 
+// --- User Status Management ---
+
+export async function archiveUser(userId: string, reason?: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_archive_user', {
+    target_user_id: userId,
+    reason: reason || null,
+  });
+  if (error) throw error;
+}
+
+export async function restoreUser(userId: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_restore_user', {
+    target_user_id: userId,
+  });
+  if (error) throw error;
+}
+
+export async function softDeleteUser(userId: string, reason?: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_soft_delete_user', {
+    target_user_id: userId,
+    reason: reason || null,
+  });
+  if (error) throw error;
+}
+
+export async function hardDeleteUser(userId: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_hard_delete_user', {
+    target_user_id: userId,
+  });
+  if (error) throw error;
+}
+
 // Auth helpers
 export async function signIn(email: string, password: string): Promise<{ user: User | null; session: Session | null; error: string | null }> {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -179,4 +214,44 @@ export async function signOut(): Promise<void> {
 export async function getSession(): Promise<{ user: User | null; session: Session | null }> {
   const { data } = await supabase.auth.getSession();
   return { user: data.session?.user ?? null, session: data.session };
+}
+
+// --- Grosome Key Management ---
+
+export interface GrosomeKeyInfo {
+  has_key: boolean;
+  key_hint: string | null;
+  updated_at: string | null;
+}
+
+export async function getGrosomeKeyInfo(): Promise<GrosomeKeyInfo> {
+  const { data, error } = await supabase.rpc('admin_get_grosome_key_info');
+  if (error) throw error;
+  const rows = data as GrosomeKeyInfo[] | null;
+  return rows && rows.length > 0 ? rows[0] : { has_key: false, key_hint: null, updated_at: null };
+}
+
+export async function rotateGrosomeKey(newKey: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_rotate_grosome_key', { new_api_key: newKey });
+  if (error) throw error;
+}
+
+// --- App Settings ---
+
+export interface AppSetting {
+  key: string;
+  value: string;
+  description: string | null;
+  updated_at: string | null;
+}
+
+export async function getAppSettings(): Promise<AppSetting[]> {
+  const { data, error } = await supabase.rpc('get_app_settings');
+  if (error) throw error;
+  return (data || []) as AppSetting[];
+}
+
+export async function updateAppSetting(key: string, value: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_update_setting', { setting_key: key, setting_value: value });
+  if (error) throw error;
 }

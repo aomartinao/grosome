@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
-import { LayoutDashboard, Users, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Shield, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { signOut } from '@/services/supabase';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ interface LayoutProps {
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/users', label: 'Users', icon: Users },
+  { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function Layout({ children, user }: LayoutProps) {
