@@ -489,6 +489,21 @@ export function UnifiedChat() {
       return;
     }
 
+    // Fail fast if offline
+    if (!navigator.onLine) {
+      if (userSyncId) {
+        updateMessage(userSyncId, { status: 'failed' });
+      }
+      addMessage({
+        syncId: crypto.randomUUID(),
+        type: 'assistant',
+        content: 'You\'re offline. Tap Resend when you\'re back online.',
+        isError: true,
+        timestamp: new Date(),
+      });
+      return;
+    }
+
     const loadingSyncId = crypto.randomUUID();
     const hasImages = images.length > 0;
     addMessage({
@@ -504,14 +519,24 @@ export function UnifiedChat() {
 
     try {
       const context = getContext();
-      const result = await processUnifiedMessage(
-        settings.claudeApiKey || null,
-        text,
-        images,
-        context,
-        chatHistory,
-        useProxy
+
+      // Timeout: fail after 30s instead of hanging indefinitely
+      const AI_TIMEOUT_MS = 30_000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out. Tap Resend to try again.')), AI_TIMEOUT_MS)
       );
+
+      const result = await Promise.race([
+        processUnifiedMessage(
+          settings.claudeApiKey || null,
+          text,
+          images,
+          context,
+          chatHistory,
+          useProxy
+        ),
+        timeoutPromise,
+      ]);
 
       // On resend: override consumedAt with the original message timestamp
       if (originalTimestamp && result.foodAnalysis) {
