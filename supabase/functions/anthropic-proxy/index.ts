@@ -15,10 +15,6 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
 ];
 
-const ALLOWED_MODELS = new Set([
-  "claude-sonnet-4-20250514",
-]);
-
 const MAX_TOKENS = 2048;
 const MAX_MESSAGES = 40;
 const MAX_CONTENT_BLOCKS_PER_MESSAGE = 16;
@@ -136,10 +132,6 @@ function validateRequestBody(
   if (typeof model !== "string" || model.length === 0) {
     return invalidRequest(req, "model must be a non-empty string");
   }
-  if (!ALLOWED_MODELS.has(model)) {
-    return modelNotAllowed(req, model);
-  }
-
   const maxTokens = rawBody.max_tokens;
   if (typeof maxTokens !== "number" || !Number.isInteger(maxTokens) || maxTokens <= 0) {
     return invalidRequest(req, "max_tokens must be a positive integer");
@@ -409,6 +401,17 @@ Deno.serve(async (req) => {
     }
 
     const { body, requestType } = validationResult;
+
+    // Fetch allowed models dynamically from app_settings
+    const { data: allowedModels, error: modelsError } = await serviceClient.rpc('get_allowed_models');
+    if (modelsError || !allowedModels) {
+      console.error("Failed to fetch allowed models:", modelsError);
+      return jsonResponse(req, 500, { error: "Internal server error" });
+    }
+    const allowedModelSet = new Set(allowedModels as string[]);
+    if (!allowedModelSet.has(body.model)) {
+      return modelNotAllowed(req, body.model);
+    }
 
     // Forward request to Anthropic
     const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
