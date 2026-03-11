@@ -439,6 +439,10 @@ $$;
 -- UPDATE EXISTING VIEWS / FUNCTIONS
 -- ============================================================
 
+-- Drop existing functions that depend on user_stats (return type changed)
+DROP FUNCTION IF EXISTS admin_get_user_stats();
+DROP FUNCTION IF EXISTS admin_get_user_by_id(uuid);
+
 -- Drop and recreate user_stats view with new fields
 DROP VIEW IF EXISTS user_stats CASCADE;
 
