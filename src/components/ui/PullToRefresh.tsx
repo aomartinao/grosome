@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ProteinSpinner } from './ProteinSpinner';
 
 interface PullToRefreshProps {
   children: React.ReactNode;
@@ -90,7 +90,7 @@ export function PullToRefresh({
 
   return (
     <div className={cn('relative flex flex-col h-full', className)}>
-      {/* Pull indicator - fixed position at header level, above everything */}
+      {/* Pull indicator */}
       {(pullDistance > 0 || isRefreshing) && (
         <div
           className="fixed left-1/2 -translate-x-1/2 flex justify-center items-center z-[100] pointer-events-none"
@@ -99,9 +99,12 @@ export function PullToRefresh({
             opacity: Math.min(progress * 2, 1),
           }}
         >
-          <ProteinSpinner
-            isSpinning={isRefreshing}
-            progress={progress}
+          <Loader2
+            className={cn(
+              'h-6 w-6 text-muted-foreground',
+              isRefreshing && 'animate-spin'
+            )}
+            style={!isRefreshing ? { transform: `rotate(${progress * 270}deg)` } : undefined}
           />
         </div>
       )}
