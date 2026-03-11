@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { subDays, format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { MessageBubble } from '@/components/chat/MessageBubble';
+import { MenuPicksCarousel } from '@/components/chat/MenuPicksCarousel';
 import { FoodCard } from '@/components/chat/FoodCard';
 import { LoggedFoodCard } from '@/components/chat/LoggedFoodCard';
 import { SleepLogCard } from '@/components/chat/SleepLogCard';
@@ -30,6 +31,7 @@ import { refineAnalysis } from '@/services/ai/client';
 import {
   processUnifiedMessage,
   generateSmartGreeting,
+  generateDynamicGreeting,
   type UnifiedContext,
   type UnifiedMessage,
   type FoodAnalysis,
@@ -37,6 +39,8 @@ import {
   type TrainingAnalysis,
   type SleepContext,
   type TrainingContext,
+  type MenuPick,
+  type GreetingScenario,
 } from '@/services/ai/unified';
 import type { DietaryPreferences, FoodEntry, ConfidenceLevel } from '@/types';
 
@@ -310,19 +314,43 @@ export function UnifiedChat() {
     }
 
     const context = getContext();
-    const greeting = generateSmartGreeting(context);
+    const greetingResult = generateSmartGreeting(context);
 
-    addMessage({
-      syncId: crypto.randomUUID(),
-      type: 'assistant',
-      content: greeting.message,
-      timestamp: new Date(),
-    });
+    // Check if this is a dynamic scenario (has 'prompt') or a static greeting (has 'message')
+    if ('prompt' in greetingResult) {
+      // Dynamic greeting — show fallback immediately, then try AI
+      const scenario = greetingResult as GreetingScenario;
+      const greetingSyncId = crypto.randomUUID();
 
-    if (greeting.quickReplies) {
-      setShowQuickReplies(greeting.quickReplies);
+      addMessage({
+        syncId: greetingSyncId,
+        type: 'assistant',
+        content: scenario.fallbackMessage,
+        timestamp: new Date(),
+      });
+      setShowQuickReplies(scenario.quickReplies);
+
+      // Try to generate dynamic greeting in background
+      const useProxy = !settings.claudeApiKey && !!settings.hasAdminApiKey;
+      const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+      if (hasApiAccess) {
+        generateDynamicGreeting(settings.claudeApiKey || null, scenario, useProxy).then((dynamic) => {
+          updateMessage(greetingSyncId, { content: dynamic.message });
+        });
+      }
+    } else {
+      // Static greeting (e.g., brand-new user)
+      addMessage({
+        syncId: crypto.randomUUID(),
+        type: 'assistant',
+        content: greetingResult.message,
+        timestamp: new Date(),
+      });
+      if (greetingResult.quickReplies) {
+        setShowQuickReplies(greetingResult.quickReplies);
+      }
     }
-  }, [insightsReady, initialized, getContext, addMessage, messages, pendingImageFromHome]);
+  }, [insightsReady, initialized, getContext, addMessage, messages, pendingImageFromHome, settings.claudeApiKey, settings.hasAdminApiKey, updateMessage]);
 
   // Track if initial scroll has happened
   const hasScrolledRef = useRef(false);
@@ -594,7 +622,7 @@ export function UnifiedChat() {
       updateMessage(loadingSyncId, {
         isLoading: false,
         isError: true,
-        content: `Something went wrong. ${error instanceof Error ? error.message : typeof error === 'string' ? error : (error && typeof error === 'object' && 'message' in error) ? String((error as Record<string, unknown>).message) : 'Please try again.'}`,
+        content: `Something went wrong. ${error instanceof Error ? error.message : typeof error === 'string' ? error : 'Please try again.'}`,
       });
     } finally {
       setIsProcessing(false);
@@ -926,6 +954,25 @@ export function UnifiedChat() {
     });
   }, [addMessage]);
 
+  // Handle tap on menu pick card — directly create pending food (no AI call)
+  const handleMenuPickLog = useCallback((pick: MenuPick, messageSyncId: string) => {
+    setShowQuickReplies([]);
+
+    const now = new Date();
+    setPendingFood({
+      messageSyncId,
+      analysis: {
+        foodName: pick.name,
+        protein: pick.protein,
+        calories: pick.calories,
+        confidence: 'high',
+        consumedAt: {
+          parsedDate: format(now, 'yyyy-MM-dd'),
+          parsedTime: format(now, 'HH:mm'),
+        },
+      },
+    });
+  }, []);
 
   // Handle input focus change for quick log suggestions
   // Use a delay when hiding so that chip onClick can fire before chips unmount
@@ -1112,6 +1159,16 @@ export function UnifiedChat() {
                 message={message}
                 isLatestMessage={index === messages.length - 1 && !hasConfirmedFood && !hasPendingFood}
               />
+
+              {/* Render menu picks carousel outside MessageBubble for full width */}
+              {message.menuPicks && message.menuPicks.length > 0 && (
+                <div className="mb-2">
+                  <MenuPicksCarousel
+                    picks={message.menuPicks}
+                    onSelectPick={(pick) => handleMenuPickLog(pick, message.syncId)}
+                  />
+                </div>
+              )}
 
               {/* Render LoggedFoodCard below the AI message that confirmed it */}
               {hasConfirmedFood && (

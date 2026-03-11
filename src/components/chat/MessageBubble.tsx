@@ -4,7 +4,6 @@ import type { ChatMessage } from '@/types';
 import { QuickReplies } from './QuickReplies';
 import { TypingIndicator } from './TypingIndicator';
 import { MarkdownText } from './MarkdownText';
-import { MenuPicksCarousel } from './MenuPicksCarousel';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -83,9 +82,6 @@ export function MessageBubble({
                 )}
                 <MarkdownText>{message.content}</MarkdownText>
               </div>
-            )}
-            {message.menuPicks && message.menuPicks.length > 0 && (
-              <MenuPicksCarousel picks={message.menuPicks} />
             )}
             {showQuickReplies && onQuickReply && (
               <QuickReplies

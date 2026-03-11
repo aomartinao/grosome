@@ -277,14 +277,29 @@ export function DailyProgress({
 
           {/* Add meal prompt - always visible on Today, "No entries" on past days */}
           {isToday ? (
-            <div
-              className="flex flex-col items-center justify-center py-8 text-center cursor-pointer hover:bg-muted/30 rounded-xl transition-colors"
-              onClick={() => navigate('/coach')}
-            >
-              <p className="text-muted-foreground">
-                {entries.length > 0 ? 'Tap to add another meal' : 'Tap here to log your first meal'}
-              </p>
-            </div>
+            entries.length === 0 ? (
+              <div
+                className="flex flex-col items-center justify-center py-6 text-center cursor-pointer rounded-2xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors"
+                onClick={() => navigate('/coach')}
+              >
+                <div className="text-base font-semibold text-foreground mb-1">Start your day</div>
+                <p className="text-sm text-muted-foreground mb-3 px-4">
+                  Log your first meal to see your protein progress here.
+                </p>
+                <div className="flex gap-2">
+                  <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                    Chat with your coach
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="flex flex-col items-center justify-center py-8 text-center cursor-pointer hover:bg-muted/30 rounded-xl transition-colors"
+                onClick={() => navigate('/coach')}
+              >
+                <p className="text-muted-foreground">Tap to add another meal</p>
+              </div>
+            )
           ) : entries.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <p className="text-muted-foreground">No entries this day</p>

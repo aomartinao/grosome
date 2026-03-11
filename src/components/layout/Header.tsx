@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Settings, LogOut, Trash2, CalendarCheck, RefreshCw, Target, Loader2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { version } from '../../../package.json';
+import changelog from '@/changelog.json';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useStore } from '@/store/useStore';
@@ -25,15 +26,29 @@ import {
   PopoverContent,
 } from '@/components/ui/popover';
 
+type Particle = { id: number; x: number; burstHeight: number; horizontalDrift: number; size: number; color: string; delay: number; duration: number };
+
+function generateParticles(): Particle[] {
+  const colors = ['bg-lime-300', 'bg-lime-400', 'bg-yellow-300', 'bg-yellow-400', 'bg-amber-300'];
+  return Array.from({ length: 80 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    burstHeight: 20 + Math.random() * 40,
+    horizontalDrift: (Math.random() - 0.5) * 120,
+    size: 3 + Math.random() * 4,
+    color: colors[Math.floor(Math.random() * 5)],
+    delay: Math.random() * 0.5,
+    duration: 1.2 + Math.random() * 0.8,
+  }));
+}
+
 export function Header() {
   const location = useLocation();
   const { user, signOut } = useAuthStore();
   const { clearMessages, clearAdvisorMessages, dashboardShowTodayButton, dashboardOnToday } = useStore();
-  useUpdateAvailable(); // Hook for update detection (used in popover)
+  const { updateAvailable, updateApp, checkForUpdate, isChecking } = useUpdateAvailable();
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [advisorClearDialogOpen, setAdvisorClearDialogOpen] = useState(false);
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'current'>('idle');
 
   // Progress data for Coach page
   const isCoachPage = location.pathname === '/coach' || location.pathname === '/chat' || location.pathname === '/advisor';
@@ -41,66 +56,24 @@ export function Header() {
   const { settings } = useSettings();
 
   // Celebration particles state
-  const [showCelebration, setShowCelebration] = useState(false);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const showCelebration = particles.length > 0;
   const prevPercentRef = useRef(insights.percentComplete);
 
   // Detect when we cross the 100% threshold
   useEffect(() => {
     const wasBelow = prevPercentRef.current < 100;
     const isNowComplete = insights.percentComplete >= 100;
+    prevPercentRef.current = insights.percentComplete;
 
     if (wasBelow && isNowComplete && isCoachPage) {
-      setShowCelebration(true);
-      // Hide after animation completes (longer for full-page drop)
-      const timer = setTimeout(() => setShowCelebration(false), 3500);
-      return () => clearTimeout(timer);
+      const raf = requestAnimationFrame(() => {
+        setParticles(generateParticles());
+      });
+      const timer = setTimeout(() => setParticles([]), 3500);
+      return () => { cancelAnimationFrame(raf); clearTimeout(timer); };
     }
-
-    prevPercentRef.current = insights.percentComplete;
   }, [insights.percentComplete, isCoachPage]);
-
-  // Generate particles for celebration - burst up then fall like water drops
-  const particles = showCelebration ? Array.from({ length: 80 }, (_, i) => {
-    const burstHeight = 20 + Math.random() * 40; // How high they burst up (px)
-    const horizontalDrift = (Math.random() - 0.5) * 120; // Slight horizontal movement
-    return {
-      id: i,
-      x: Math.random() * 100, // % position across the screen
-      burstHeight,
-      horizontalDrift,
-      size: 3 + Math.random() * 4, // Smaller particles (3-7px)
-      color: ['bg-lime-300', 'bg-lime-400', 'bg-yellow-300', 'bg-yellow-400', 'bg-amber-300'][Math.floor(Math.random() * 5)],
-      delay: Math.random() * 0.5, // Staggered start
-      duration: 1.2 + Math.random() * 0.8, // Total animation duration
-    };
-  }) : [];
-
-  const handleCheckForUpdates = async () => {
-    setIsCheckingUpdate(true);
-    setUpdateStatus('checking');
-
-    try {
-      const registration = await navigator.serviceWorker?.getRegistration();
-      if (registration) {
-        await registration.update();
-
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          window.location.reload();
-        } else {
-          setUpdateStatus('current');
-          setTimeout(() => setUpdateStatus('idle'), 2000);
-        }
-      } else {
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Failed to check for updates:', error);
-      window.location.reload();
-    } finally {
-      setIsCheckingUpdate(false);
-    }
-  };
 
   const getTitle = () => {
     switch (location.pathname) {
@@ -202,7 +175,12 @@ export function Header() {
     <Popover>
       <PopoverTrigger asChild>
         <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Target className="h-6 w-6 text-amber-500" />
+          <div className="relative">
+            <Target className="h-6 w-6 text-amber-500" />
+            {updateAvailable && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-background" />
+            )}
+          </div>
           <span className="text-xl font-semibold"><span className="text-amber-500">gro</span><span className="text-foreground">some</span></span>
         </button>
       </PopoverTrigger>
@@ -218,6 +196,48 @@ export function Header() {
           <p className="text-sm text-muted-foreground">
             AI-powered protein tracking to hit your daily goals
           </p>
+          <div className="flex gap-2">
+            <Link to="/settings" className="flex-1">
+              <Button variant="outline" size="sm" className="w-full gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
+            <Button
+              variant={updateAvailable ? 'default' : 'outline'}
+              size="sm"
+              className="flex-1 gap-2"
+              onClick={updateAvailable ? updateApp : checkForUpdate}
+              disabled={isChecking}
+            >
+              {isChecking ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {updateAvailable ? 'Update now' : 'Check for updates'}
+            </Button>
+          </div>
+          {/* What's new */}
+          <div className="max-h-48 overflow-y-auto space-y-3 pt-2 border-t border-border">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">What's new</p>
+            {changelog.slice(0, 5).map((entry) => (
+              <div key={entry.version} className="space-y-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-semibold">v{entry.version}</span>
+                  <span className="text-xs text-muted-foreground">{entry.date}</span>
+                </div>
+                <ul className="text-xs text-muted-foreground space-y-0.5">
+                  {entry.changes.map((change, i) => (
+                    <li key={i} className="flex gap-1.5">
+                      <span className="text-amber-500 mt-0.5 shrink-0">-</span>
+                      <span>{change}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
           <div className="pt-2 border-t border-border">
             <p className="text-xs text-muted-foreground">
               Feedback welcome at{' '}
@@ -228,28 +248,6 @@ export function Header() {
                 martin.holecko@gmail.com
               </a>
             </p>
-          </div>
-          <div className="flex gap-2">
-            <Link to="/settings" className="flex-1">
-              <Button variant="outline" size="sm" className="w-full gap-2">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Button>
-            </Link>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 gap-2"
-              onClick={handleCheckForUpdates}
-              disabled={isCheckingUpdate}
-            >
-              {isCheckingUpdate ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              {updateStatus === 'current' ? 'Up to date' : 'Update'}
-            </Button>
           </div>
         </div>
       </PopoverContent>
