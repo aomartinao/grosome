@@ -113,15 +113,11 @@ BEGIN
   WHERE name = 'grosome_api_key';
 
   IF existing_id IS NOT NULL THEN
-    -- Update existing secret
-    UPDATE vault.secrets
-    SET secret = new_api_key,
-        updated_at = now()
-    WHERE id = existing_id;
+    -- Update using vault.update_secret (handles encryption)
+    PERFORM vault.update_secret(existing_id, new_api_key, 'grosome_api_key', 'Global Grosome API key for all users');
   ELSE
-    -- Insert new secret
-    INSERT INTO vault.secrets (secret, name, description)
-    VALUES (new_api_key, 'grosome_api_key', 'Global Grosome API key for all users');
+    -- Create using vault.create_secret (handles encryption)
+    PERFORM vault.create_secret(new_api_key, 'grosome_api_key', 'Global Grosome API key for all users');
   END IF;
 END;
 $$;

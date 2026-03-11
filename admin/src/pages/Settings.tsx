@@ -22,9 +22,9 @@ const ANTHROPIC_MODELS = [
 ];
 
 const MODEL_SLOTS = [
-  { key: 'vision_model', label: 'Vision Model', description: 'Used for food photo and menu analysis' },
-  { key: 'chat_model', label: 'Chat Model', description: 'Used for coaching and text-based food logging' },
-  { key: 'greeting_model', label: 'Greeting Model', description: 'Used for AI-generated greetings (future)' },
+  { key: 'model_vision', label: 'Vision Model', description: 'Used for food photo and menu analysis' },
+  { key: 'model_chat', label: 'Chat Model', description: 'Used for coaching and text-based food logging' },
+  { key: 'model_greeting', label: 'Greeting Model', description: 'Used for AI-generated greetings (future)' },
 ] as const;
 
 export function Settings() {
