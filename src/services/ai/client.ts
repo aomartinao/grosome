@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIAnalysisResult, ConfidenceLevel, ConsumedAtInfo } from '@/types';
-import { sendProxyRequest, parseProxyResponse, type ProxyMessageContent } from './proxy';
+import { sendProxyRequest, parseProxyResponse, getModelConfig, type ProxyMessageContent } from './proxy';
 
 function buildFoodAnalysisPrompt(): string {
   return `You are a nutrition expert analyzing food images and descriptions to estimate protein AND calorie content for the ENTIRE item being consumed.
@@ -88,11 +88,12 @@ export async function analyzeFood(
   }
 
   let responseText: string;
+  const models = await getModelConfig();
 
   if (useProxy) {
     // Use the proxy Edge Function (admin-provided key)
     const proxyResponse = await sendProxyRequest({
-      model: 'claude-sonnet-4-20250514',
+      model: models.vision,
       max_tokens: 500,
       system: buildFoodAnalysisPrompt(),
       messages: [{ role: 'user', content: content as ProxyMessageContent[] }],
@@ -110,7 +111,7 @@ export async function analyzeFood(
     });
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: models.vision,
       max_tokens: 500,
       system: buildFoodAnalysisPrompt(),
       messages: [
@@ -209,10 +210,11 @@ ${originalAnalysis.consumedAt ? `- Consumed at: ${originalAnalysis.consumedAt.pa
 User's additional info: ${userCorrection}`;
 
   let responseText: string;
+  const models = await getModelConfig();
 
   if (useProxy) {
     const proxyResponse = await sendProxyRequest({
-      model: 'claude-sonnet-4-20250514',
+      model: models.vision,
       max_tokens: 500,
       system: REFINE_ANALYSIS_PROMPT,
       messages: [{ role: 'user', content: userContent }],
@@ -229,7 +231,7 @@ User's additional info: ${userCorrection}`;
     });
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: models.vision,
       max_tokens: 500,
       system: REFINE_ANALYSIS_PROMPT,
       messages: [{ role: 'user', content: userContent }],

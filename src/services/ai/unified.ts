@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { DietaryPreferences, SleepQuality, MuscleGroup } from '@/types';
 import type { ProgressInsights } from '@/hooks/useProgressInsights';
-import { sendProxyRequest, parseProxyResponse, type ProxyMessageContent } from './proxy';
+import { sendProxyRequest, parseProxyResponse, getModelConfig, type ProxyMessageContent } from './proxy';
 
 // Food categories for variety tracking
 export type FoodCategory = 'meat' | 'dairy' | 'seafood' | 'plant' | 'eggs' | 'other';
@@ -626,10 +626,11 @@ export async function processUnifiedMessage(
   }
 
   let responseText: string;
+  const models = await getModelConfig();
 
   if (useProxy) {
     const proxyResponse = await sendProxyRequest({
-      model: 'claude-sonnet-4-20250514',
+      model: models.chat,
       max_tokens: 1000,
       system: buildUnifiedSystemPrompt(context),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -647,7 +648,7 @@ export async function processUnifiedMessage(
     });
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: models.chat,
       max_tokens: 1000,
       system: buildUnifiedSystemPrompt(context),
       messages: messages as Anthropic.MessageParam[],
