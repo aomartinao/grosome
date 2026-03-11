@@ -215,7 +215,7 @@ export function Header() {
               ) : (
                 <RefreshCw className="h-4 w-4" />
               )}
-              {updateAvailable ? 'Update now' : 'Check for updates'}
+              {updateAvailable ? 'Update' : 'Check updates'}
             </Button>
           </div>
           {/* What's new */}
