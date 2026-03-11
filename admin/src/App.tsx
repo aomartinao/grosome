@@ -6,6 +6,7 @@ import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
 import { Users } from '@/pages/Users';
 import { UserDetail } from '@/pages/UserDetail';
+import { Settings } from '@/pages/Settings';
 import { Layout } from '@/components/Layout';
 
 function App() {
@@ -87,6 +88,18 @@ function App() {
             user && isAdminUser ? (
               <Layout user={user}>
                 <UserDetail />
+              </Layout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            user && isAdminUser ? (
+              <Layout user={user}>
+                <Settings />
               </Layout>
             ) : (
               <Navigate to="/login" replace />
