@@ -77,8 +77,13 @@ export async function getUserStats(): Promise<UserStats[]> {
     throw error;
   }
 
-  // Sort by signed_up_at descending (RPC doesn't support .order())
-  const stats = (data || []) as UserStats[];
+  // Map RPC column names to frontend interface
+  // RPC returns has_grosome_key (renamed from has_admin_key) and has_custom_key
+  const stats = ((data || []) as Array<Record<string, unknown>>).map((row) => ({
+    ...row,
+    has_admin_key: row.has_grosome_key ?? row.has_admin_key ?? false,
+  })) as UserStats[];
+
   stats.sort((a, b) => new Date(b.signed_up_at).getTime() - new Date(a.signed_up_at).getTime());
   return stats;
 }
@@ -94,8 +99,11 @@ export async function getUserById(userId: string): Promise<UserStats | null> {
     throw error;
   }
 
-  const rows = data as UserStats[] | null;
-  return rows && rows.length > 0 ? rows[0] : null;
+  const rows = ((data || []) as Array<Record<string, unknown>>).map((row) => ({
+    ...row,
+    has_admin_key: row.has_grosome_key ?? row.has_admin_key ?? false,
+  })) as UserStats[];
+  return rows.length > 0 ? rows[0] : null;
 }
 
 // Get API usage for a user
