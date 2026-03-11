@@ -355,9 +355,9 @@ CREATE POLICY "Authenticated can read app_settings" ON app_settings
 
 -- 3d. Seed default settings
 INSERT INTO app_settings (key, value, description) VALUES
-  ('model_vision', 'claude-sonnet-4-20250514', 'Model used for food photo analysis'),
-  ('model_chat', 'claude-sonnet-4-20250514', 'Model used for chat conversations'),
-  ('model_greeting', 'claude-haiku-4-5-20251001', 'Model used for greeting generation')
+  ('model_vision', 'claude-sonnet-4-6-20250620', 'Model used for food photo analysis'),
+  ('model_chat', 'claude-sonnet-4-6-20250620', 'Model used for chat conversations'),
+  ('model_greeting', 'claude-sonnet-4-6-20250620', 'Model used for greeting generation')
 ON CONFLICT (key) DO NOTHING;
 
 -- 3e. Get all app settings
@@ -409,6 +409,7 @@ END;
 $$;
 
 -- 3g. Get allowed models (distinct model values from settings)
+-- No auth check — called by service role from edge function
 CREATE OR REPLACE FUNCTION get_allowed_models()
 RETURNS text[]
 LANGUAGE plpgsql
@@ -418,10 +419,6 @@ AS $$
 DECLARE
   models text[];
 BEGIN
-  IF auth.uid() IS NULL THEN
-    RAISE EXCEPTION 'Unauthorized: Must be authenticated';
-  END IF;
-
   SELECT ARRAY_AGG(DISTINCT s.value)
   INTO models
   FROM app_settings s
@@ -475,6 +472,7 @@ REVOKE ALL ON user_stats FROM authenticated;
 GRANT SELECT ON user_stats TO service_role;
 
 -- Recreate admin_get_user_stats() with new fields
+-- Note: must use table aliases to avoid ambiguous user_id (return column vs table column)
 CREATE OR REPLACE FUNCTION admin_get_user_stats()
 RETURNS TABLE (
   user_id uuid,
@@ -494,11 +492,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM admin_users WHERE user_id = auth.uid()) THEN
+  IF NOT EXISTS (SELECT 1 FROM admin_users au WHERE au.user_id = auth.uid()) THEN
     RAISE EXCEPTION 'Unauthorized: Only admins can view user stats';
   END IF;
 
-  RETURN QUERY SELECT * FROM user_stats;
+  RETURN QUERY SELECT us.user_id, us.email::text, us.signed_up_at, us.last_sign_in_at,
+    us.food_entries_count, us.chat_messages_count, us.api_requests_count, us.last_api_request,
+    us.has_custom_key, us.status, us.deleted_at, us.has_grosome_key
+  FROM user_stats us;
 END;
 $$;
 
@@ -522,11 +523,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM admin_users WHERE user_id = auth.uid()) THEN
+  IF NOT EXISTS (SELECT 1 FROM admin_users au WHERE au.user_id = auth.uid()) THEN
     RAISE EXCEPTION 'Unauthorized: Only admins can view user stats';
   END IF;
 
-  RETURN QUERY SELECT * FROM user_stats us WHERE us.user_id = target_user_id;
+  RETURN QUERY SELECT us.user_id, us.email::text, us.signed_up_at, us.last_sign_in_at,
+    us.food_entries_count, us.chat_messages_count, us.api_requests_count, us.last_api_request,
+    us.has_custom_key, us.status, us.deleted_at, us.has_grosome_key
+  FROM user_stats us WHERE us.user_id = admin_get_user_by_id.target_user_id;
 END;
 $$;
 

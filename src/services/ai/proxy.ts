@@ -139,9 +139,9 @@ interface ModelConfig {
 }
 
 const FALLBACK_CONFIG: ModelConfig = {
-  vision: 'claude-sonnet-4-20250514',
-  chat: 'claude-sonnet-4-20250514',
-  greeting: 'claude-haiku-4-5-20251001',
+  vision: 'claude-sonnet-4-6-20250620',
+  chat: 'claude-sonnet-4-6-20250620',
+  greeting: 'claude-sonnet-4-6-20250620',
 };
 
 let cachedConfig: ModelConfig | null = null;
