@@ -8,7 +8,7 @@ import {
   ChevronRight,
   Target,
   Zap,
-  Dumbbell,
+  BicepsFlexed,
   Moon,
   RotateCcw,
   Sparkles,
@@ -379,7 +379,7 @@ export function Settings() {
             }
           />
           <SettingsRow
-            icon={Dumbbell}
+            icon={BicepsFlexed}
             iconColor="text-purple-500"
             label="MPS Hits"
             description="≥25g protein, 3+ hours apart"
@@ -646,6 +646,9 @@ export function Settings() {
           </Button>
         </div>
       </div>
+
+      {/* Bottom spacer for toolbar clearance */}
+      <div className="h-24" />
 
       {/* API Key Dialog */}
       <Dialog open={apiKeyDialogOpen} onOpenChange={setApiKeyDialogOpen}>

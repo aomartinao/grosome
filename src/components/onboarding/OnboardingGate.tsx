@@ -3,9 +3,21 @@ import { useSettings } from '@/hooks/useProteinData';
 import { db } from '@/db';
 import { Onboarding } from '@/pages/Onboarding';
 
+// Quick synchronous check of localStorage to avoid flash while async DB loads
+function wasOnboardingCompleted(): boolean {
+  try {
+    const raw = localStorage.getItem('grosome-storage');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return !!parsed?.state?.settings?.onboardingCompleted;
+    }
+  } catch { /* ignore */ }
+  return false;
+}
+
 export function OnboardingGate({ children }: { children: ReactNode }) {
   const { settings, updateSettings, settingsLoaded } = useSettings();
-  const [checked, setChecked] = useState(false);
+  const [checked, setChecked] = useState(wasOnboardingCompleted);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
