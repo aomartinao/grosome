@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { subDays, format } from 'date-fns';
+import { subDays, format, startOfWeek, addDays } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { MenuPicksCarousel } from '@/components/chat/MenuPicksCarousel';
@@ -32,6 +32,10 @@ import {
   processUnifiedMessage,
   generateSmartGreeting,
   generateDynamicGreeting,
+  shouldShowReport,
+  collectReportData,
+  formatReportMessage,
+  buildReportEvalPrompt,
   type UnifiedContext,
   type UnifiedMessage,
   type FoodAnalysis,
@@ -352,6 +356,87 @@ export function UnifiedChat() {
       }
     }
   }, [insightsReady, initialized, getContext, addMessage, messages, pendingImageFromHome, settings.claudeApiKey, settings.hasAdminApiKey, updateMessage]);
+
+  // Check for periodic report (daily/weekly) after 10pm
+  useEffect(() => {
+    if (!initialized || !settingsLoaded) return;
+
+    const reportCheck = shouldShowReport(
+      new Date(),
+      settings.lastDailyReportDate,
+      settings.lastWeeklyReportDate,
+    );
+    if (!reportCheck) return;
+
+    const { type: reportType, startDate, endDate } = reportCheck;
+
+    // Generate and insert report
+    (async () => {
+      const data = await collectReportData(
+        startDate,
+        endDate,
+        reportType,
+        settings.defaultGoal,
+        settings.calorieGoal || 2000,
+        settings.trainingGoalPerWeek || 3,
+        settings.sleepGoalMinutes || 480,
+      );
+
+      const reportContent = formatReportMessage(data);
+      const reportSyncId = crypto.randomUUID();
+
+      addMessage({
+        syncId: reportSyncId,
+        type: 'assistant',
+        content: reportContent,
+        timestamp: new Date(),
+      });
+
+      // Mark report as shown
+      const today = format(new Date(), 'yyyy-MM-dd');
+      if (reportType === 'weekly') {
+        updateSettings({ lastWeeklyReportDate: today });
+      } else {
+        updateSettings({ lastDailyReportDate: today });
+      }
+
+      // Try to add AI evaluation
+      const useProxy = !settings.claudeApiKey && !!settings.hasAdminApiKey;
+      const hasApiAccess = settings.claudeApiKey || settings.hasAdminApiKey;
+      if (hasApiAccess) {
+        try {
+          const evalPrompt = buildReportEvalPrompt(data);
+          const models = await import('@/services/ai/proxy').then(m => m.getModelConfig());
+          if (useProxy) {
+            const { sendProxyRequest, parseProxyResponse } = await import('@/services/ai/proxy');
+            const response = await sendProxyRequest({
+              model: models.chat,
+              max_tokens: 150,
+              messages: [{ role: 'user', content: evalPrompt }],
+            });
+            const evalText = parseProxyResponse(response);
+            updateMessage(reportSyncId, { content: `${reportContent}\n\n💬 ${evalText}` });
+          } else if (settings.claudeApiKey) {
+            const Anthropic = (await import('@anthropic-ai/sdk')).default;
+            const client = new Anthropic({ apiKey: settings.claudeApiKey, dangerouslyAllowBrowser: true });
+            const response = await client.messages.create({
+              model: models.chat,
+              max_tokens: 150,
+              messages: [{ role: 'user', content: evalPrompt }],
+            });
+            const textBlock = response.content.find(b => b.type === 'text');
+            if (textBlock && textBlock.type === 'text') {
+              updateMessage(reportSyncId, { content: `${reportContent}\n\n💬 ${textBlock.text}` });
+            }
+          }
+        } catch (err) {
+          console.error('[Report] Failed to generate AI evaluation:', err);
+          // Report still shows without evaluation — that's fine
+        }
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialized, settingsLoaded]);
 
   // Track if initial scroll has happened
   const hasScrolledRef = useRef(false);
@@ -712,6 +797,49 @@ export function UnifiedChat() {
     return `${intro}\n\n${items}`;
   };
 
+  // Regenerate today's report if it was already shown and new data was added
+  const maybeRegenerateReport = useCallback(async () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const hour = new Date().getHours();
+    if (hour < 22) return; // Only relevant after 10pm
+
+    const isDaily = settings.lastDailyReportDate === today;
+    const isWeekly = settings.lastWeeklyReportDate === today;
+    if (!isDaily && !isWeekly) return;
+
+    // Find the report message in chat (look for the report header)
+    const reportHeader = isWeekly ? '**📊 Weekly Report**' : '**📋 Daily Report**';
+    const reportMsg = [...messages].reverse().find(m =>
+      m.type === 'assistant' && m.content.includes(reportHeader)
+    );
+    if (!reportMsg) return;
+
+    const reportType = isWeekly ? 'weekly' as const : 'daily' as const;
+    const monday = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const endDate = isWeekly
+      ? format(addDays(new Date(monday), 6), 'yyyy-MM-dd')
+      : today;
+
+    const data = await collectReportData(
+      monday, endDate, reportType,
+      settings.defaultGoal,
+      settings.calorieGoal || 2000,
+      settings.trainingGoalPerWeek || 3,
+      settings.sleepGoalMinutes || 480,
+    );
+
+    let content = formatReportMessage(data);
+
+    // Preserve existing AI evaluation if present
+    const existingContent = reportMsg.content;
+    const evalMatch = existingContent.match(/\n\n💬 .+$/s);
+    if (evalMatch) {
+      content += evalMatch[0];
+    }
+
+    updateMessage(reportMsg.syncId, { content });
+  }, [settings, messages, updateMessage]);
+
   // Confirm food entry
   const handleConfirmFood = async () => {
     if (!pendingFood) return;
@@ -779,6 +907,9 @@ export function UnifiedChat() {
 
     setPendingFood(null);
     setShowQuickReplies([]);
+
+    // Regenerate today's report if it exists (user added data after report)
+    maybeRegenerateReport();
   };
 
   // Save inline edit to pending food
@@ -887,6 +1018,9 @@ export function UnifiedChat() {
 
     setPendingSleep(null);
     setShowQuickReplies([]);
+
+    // Regenerate today's report if it exists (user added data after report)
+    maybeRegenerateReport();
   };
 
   // Cancel sleep entry
@@ -934,6 +1068,9 @@ export function UnifiedChat() {
 
     setPendingTraining(null);
     setShowQuickReplies([]);
+
+    // Regenerate today's report if it exists (user added data after report)
+    maybeRegenerateReport();
   };
 
   // Cancel training entry
@@ -1194,6 +1331,13 @@ export function UnifiedChat() {
         className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-2 min-h-0 overscroll-contain relative"
       >
         {messages.map((message, index) => {
+          // Day separator: show date + day of week when day changes
+          const prevMessage = index > 0 ? messages[index - 1] : null;
+          const msgDate = format(new Date(message.timestamp), 'yyyy-MM-dd');
+          const prevDate = prevMessage ? format(new Date(prevMessage.timestamp), 'yyyy-MM-dd') : null;
+          const showDaySeparator = index === 0 || msgDate !== prevDate;
+          const dayLabel = showDaySeparator ? format(new Date(message.timestamp), 'EEEE, MMM d') : null;
+
           // Check for confirmed food entry on this message
           const foodEntry = message.foodEntry ||
             (message.foodEntrySyncId ? entriesBySyncId.get(message.foodEntrySyncId) : undefined);
@@ -1226,6 +1370,15 @@ export function UnifiedChat() {
 
           return (
             <div key={message.syncId}>
+              {/* Day separator */}
+              {showDaySeparator && dayLabel && (
+                <div className="flex items-center gap-3 my-4">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs font-medium text-muted-foreground">{dayLabel}</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              )}
+
               {/* Always render the message bubble */}
               <MessageBubble
                 message={message}

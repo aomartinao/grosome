@@ -72,6 +72,7 @@ For **quick tasks under 30 minutes**: Skip formal tracking, just execute and sum
 ### Security Rules — CRITICAL
 - **NEVER read or display `.env` contents** — secrets would appear in conversation logs
 - **NEVER echo/print credential values** — use variables without displaying them
+- **NEVER display generated secrets/keys in terminal output** — generate and write in one command without echoing (e.g., `openssl rand | sed` in a single pipeline). Values must never appear in conversation logs.
 - **Use environment variables in commands:**
   ```bash
   # CORRECT - value never appears in output (use session pooler for IPv4 compatibility)

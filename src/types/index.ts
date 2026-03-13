@@ -78,6 +78,9 @@ export interface UserSettings {
   trainingGoalPerWeek?: number;              // training sessions per week target
   trainingTrackingEnabled?: boolean;
   onboardingCompleted?: boolean;             // GRRROMODE onboarding completed
+  // Periodic reports
+  lastDailyReportDate?: string;              // YYYY-MM-DD of last daily report shown
+  lastWeeklyReportDate?: string;             // YYYY-MM-DD of last weekly report shown
 }
 
 export interface DailyGoal {

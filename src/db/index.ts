@@ -665,6 +665,11 @@ function normalizeSleepEntryDates(entry: SleepEntry): SleepEntry {
   };
 }
 
+export async function getSleepEntriesForDateRange(startDate: string, endDate: string): Promise<SleepEntry[]> {
+  const entries = await db.sleepEntries.where('date').between(startDate, endDate, true, true).toArray();
+  return entries.filter(e => !e.deletedAt).map(normalizeSleepEntryDates);
+}
+
 export async function getSleepEntriesForDate(date: string): Promise<SleepEntry[]> {
   const entries = await db.sleepEntries.where('date').equals(date).toArray();
   return entries.filter(e => !e.deletedAt).map(normalizeSleepEntryDates);
@@ -764,6 +769,11 @@ function normalizeTrainingEntryDates(entry: TrainingEntry): TrainingEntry {
       ? (entry.deletedAt instanceof Date ? entry.deletedAt : new Date(entry.deletedAt))
       : undefined,
   };
+}
+
+export async function getTrainingEntriesForDateRange(startDate: string, endDate: string): Promise<TrainingEntry[]> {
+  const entries = await db.trainingEntries.where('date').between(startDate, endDate, true, true).toArray();
+  return entries.filter(e => !e.deletedAt).map(normalizeTrainingEntryDates);
 }
 
 export async function getTrainingEntriesForDate(date: string): Promise<TrainingEntry[]> {

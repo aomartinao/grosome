@@ -420,7 +420,7 @@ export function Settings() {
             }
           />
           <SettingsRow
-            icon={Dumbbell}
+            icon={BicepsFlexed}
             iconColor="text-emerald-500"
             label="Training"
             description={settings.trainingTrackingEnabled ? `Goal: ${settings.trainingGoalPerWeek || 3} sessions/week` : 'Disabled'}

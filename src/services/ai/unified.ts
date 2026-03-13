@@ -2,6 +2,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { DietaryPreferences, SleepQuality, MuscleGroup } from '@/types';
 import type { ProgressInsights } from '@/hooks/useProgressInsights';
 import { sendProxyRequest, parseProxyResponse, getModelConfig, type ProxyMessageContent } from './proxy';
+import { format as fmtDate, startOfWeek, addDays } from 'date-fns';
+import {
+  getEntriesForDateRange,
+  getSleepEntriesForDateRange,
+  getTrainingEntriesForDateRange,
+} from '@/db';
 
 // Food categories for variety tracking
 export type FoodCategory = 'meat' | 'dairy' | 'seafood' | 'plant' | 'eggs' | 'other';
@@ -1149,4 +1155,203 @@ export function generateSmartGreeting(context: UnifiedContext): GreetingScenario
     quickReplies: [logChip, 'High-protein ideas', 'Scan a menu'],
     fallbackMessage: `Ready when you are!`,
   };
+}
+
+// --- Periodic Reports (Daily / Weekly) ---
+
+export interface ReportData {
+  type: 'daily' | 'weekly';
+  periodLabel: string;         // e.g. "Monday – Wednesday" or "This Week"
+  daysTracked: number;         // how many days in the period
+  avgProtein: number;          // average daily protein (g)
+  avgCalories: number;         // average daily calories (kcal)
+  proteinGoal: number;         // daily protein target
+  calorieGoal: number;         // daily calorie target
+  totalCalorieBalance: number; // sum of (intake - goal) across days, negative = deficit
+  trainingCount: number;       // number of training sessions
+  trainingGoal: number;        // weekly training target
+  avgSleepMinutes: number;     // average nightly sleep (minutes)
+  sleepGoal: number;           // nightly sleep target (minutes)
+  daysWithSleep: number;       // days that have sleep data
+}
+
+/**
+ * Get the Monday of the current week
+ */
+function getMondayOfWeek(date: Date): Date {
+  return startOfWeek(date, { weekStartsOn: 1 });
+}
+
+/**
+ * Collect report data for a date range
+ */
+export async function collectReportData(
+  startDate: string,
+  endDate: string,
+  type: 'daily' | 'weekly',
+  proteinGoal: number,
+  calorieGoal: number,
+  trainingGoal: number,
+  sleepGoalMinutes: number,
+): Promise<ReportData> {
+  const [foodEntries, sleepEntries, trainingEntries] = await Promise.all([
+    getEntriesForDateRange(startDate, endDate),
+    getSleepEntriesForDateRange(startDate, endDate),
+    getTrainingEntriesForDateRange(startDate, endDate),
+  ]);
+
+  // Group food entries by date
+  const foodByDate = new Map<string, { protein: number; calories: number }>();
+  for (const entry of foodEntries) {
+    const existing = foodByDate.get(entry.date) || { protein: 0, calories: 0 };
+    existing.protein += (Number(entry.protein) || 0);
+    existing.calories += (Number(entry.calories) || 0);
+    foodByDate.set(entry.date, existing);
+  }
+
+  // Count days in range
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (86400000)) + 1);
+  const daysWithFood = foodByDate.size || 1;
+
+  // Averages (only over days that have entries)
+  let totalProtein = 0;
+  let totalCalories = 0;
+  for (const day of foodByDate.values()) {
+    totalProtein += day.protein;
+    totalCalories += day.calories;
+  }
+
+  // Calorie balance: sum of (intake - goal) for each day in range
+  const totalCalorieBalance = totalCalories - (calorieGoal * daysWithFood);
+
+  // Sleep
+  const sleepByDate = new Map<string, number>();
+  for (const entry of sleepEntries) {
+    const existing = sleepByDate.get(entry.date) || 0;
+    sleepByDate.set(entry.date, existing + (entry.duration || 0));
+  }
+  let totalSleep = 0;
+  for (const duration of sleepByDate.values()) {
+    totalSleep += duration;
+  }
+
+  // Period label
+  const startDay = fmtDate(new Date(startDate), 'EEEE');
+  const endDay = fmtDate(new Date(endDate), 'EEEE');
+  const periodLabel = type === 'weekly'
+    ? 'This Week'
+    : startDate === endDate
+      ? startDay
+      : `${startDay} – ${endDay}`;
+
+  return {
+    type,
+    periodLabel,
+    daysTracked: totalDays,
+    avgProtein: Math.round(totalProtein / daysWithFood),
+    avgCalories: Math.round(totalCalories / daysWithFood),
+    proteinGoal,
+    calorieGoal,
+    totalCalorieBalance: Math.round(totalCalorieBalance),
+    trainingCount: trainingEntries.length,
+    trainingGoal,
+    avgSleepMinutes: sleepByDate.size > 0 ? Math.round(totalSleep / sleepByDate.size) : 0,
+    sleepGoal: sleepGoalMinutes,
+    daysWithSleep: sleepByDate.size,
+  };
+}
+
+/**
+ * Format report data into a readable message
+ */
+export function formatReportMessage(data: ReportData): string {
+  const sleepHours = Math.floor(data.avgSleepMinutes / 60);
+  const sleepMins = data.avgSleepMinutes % 60;
+  const sleepGoalH = Math.floor(data.sleepGoal / 60);
+  const sleepGoalM = data.sleepGoal % 60;
+  const sleepStr = sleepMins > 0 ? `${sleepHours}h ${sleepMins}m` : `${sleepHours}h`;
+  const sleepGoalStr = sleepGoalM > 0 ? `${sleepGoalH}h ${sleepGoalM}m` : `${sleepGoalH}h`;
+
+  const header = data.type === 'weekly' ? '📊 Weekly Report' : '📋 Daily Report';
+  const balanceLabel = data.totalCalorieBalance >= 0 ? 'surplus' : 'deficit';
+  const balanceAbs = Math.abs(data.totalCalorieBalance);
+
+  const proteinIcon = data.avgProtein >= data.proteinGoal ? '✅' : '⚠️';
+  const trainingIcon = data.trainingCount >= data.trainingGoal ? '✅' : data.trainingCount > 0 ? '🔄' : '⚠️';
+  const sleepIcon = data.daysWithSleep === 0 ? '—' : data.avgSleepMinutes >= data.sleepGoal ? '✅' : '⚠️';
+
+  let lines = [
+    `**${header}** · ${data.periodLabel}`,
+    '',
+    `${proteinIcon} **Protein** — ${data.avgProtein}g avg / ${data.proteinGoal}g goal`,
+    `🔥 **Calories** — ${data.avgCalories} kcal avg / ${data.calorieGoal} goal`,
+    `📉 **Balance** — ${balanceAbs} kcal ${balanceLabel} over ${data.daysTracked} day${data.daysTracked > 1 ? 's' : ''}`,
+    `${trainingIcon} **Training** — ${data.trainingCount} session${data.trainingCount !== 1 ? 's' : ''} / ${data.trainingGoal} goal`,
+  ];
+
+  if (data.daysWithSleep > 0) {
+    lines.push(`${sleepIcon} **Sleep** — ${sleepStr} avg / ${sleepGoalStr} goal`);
+  } else {
+    lines.push(`😴 **Sleep** — no data logged`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Generate AI evaluation for the report (1-2 lines)
+ */
+export function buildReportEvalPrompt(data: ReportData): string {
+  return `You are a concise fitness coach. Write exactly 1-2 SHORT sentences evaluating this ${data.type} progress report. Be encouraging but honest. Focus on the most notable thing — good or bad.
+
+Data:
+- Protein: ${data.avgProtein}g avg vs ${data.proteinGoal}g goal
+- Calories: ${data.avgCalories} avg vs ${data.calorieGoal} goal (${data.totalCalorieBalance >= 0 ? '+' : ''}${data.totalCalorieBalance} kcal total)
+- Training: ${data.trainingCount}/${data.trainingGoal} sessions
+- Sleep: ${data.daysWithSleep > 0 ? `${Math.round(data.avgSleepMinutes / 60 * 10) / 10}h avg vs ${Math.round(data.sleepGoal / 60 * 10) / 10}h goal` : 'not tracked'}
+- Period: ${data.daysTracked} days
+
+Reply with ONLY your 1-2 sentence evaluation. No greeting, no emoji at start, no formatting.`;
+}
+
+/**
+ * Check if a periodic report should be shown.
+ * Returns report data + date range, or null if not due.
+ */
+export function shouldShowReport(
+  now: Date,
+  lastDailyReportDate: string | undefined,
+  lastWeeklyReportDate: string | undefined,
+): { type: 'daily' | 'weekly'; startDate: string; endDate: string } | null {
+  const hour = now.getHours();
+  if (hour < 22) return null; // Only after 10pm
+
+  const today = fmtDate(now, 'yyyy-MM-dd');
+  const dayOfWeek = now.getDay(); // 0=Sunday, 6=Saturday
+  const monday = getMondayOfWeek(now);
+  const mondayStr = fmtDate(monday, 'yyyy-MM-dd');
+
+  // Sunday = weekly report
+  if (dayOfWeek === 0 && lastWeeklyReportDate !== today) {
+    // Full week: Monday through Sunday
+    const sunday = addDays(monday, 6);
+    return {
+      type: 'weekly',
+      startDate: mondayStr,
+      endDate: fmtDate(sunday, 'yyyy-MM-dd'),
+    };
+  }
+
+  // Other days = daily report (Monday through today)
+  if (lastDailyReportDate !== today) {
+    return {
+      type: 'daily',
+      startDate: mondayStr,
+      endDate: today,
+    };
+  }
+
+  return null;
 }
