@@ -380,6 +380,9 @@ export function UnifiedChat() {
         settings.calorieGoal || 2000,
         settings.trainingGoalPerWeek || 3,
         settings.sleepGoalMinutes || 480,
+        settings.bmr || 0,
+        settings.trainingCaloriesBurn || 400,
+        settings.weeklyBalanceTarget || 0,
       );
 
       const reportContent = formatReportMessage(data);
@@ -826,6 +829,9 @@ export function UnifiedChat() {
       settings.calorieGoal || 2000,
       settings.trainingGoalPerWeek || 3,
       settings.sleepGoalMinutes || 480,
+      settings.bmr || 0,
+      settings.trainingCaloriesBurn || 400,
+      settings.weeklyBalanceTarget || 0,
     );
 
     let content = formatReportMessage(data);

@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.9.76",
+    "date": "2026-03-14",
+    "changes": [
+      "Reports now show date ranges in header (Mon 10 Mar – Thu 13 Mar)",
+      "Energy balance: avg daily deficit/surplus and week total based on TDEE",
+      "New settings: BMR, training calorie burn, weekly deficit/surplus target",
+      "Energy balance section in onboarding wizard",
+      "AI coach evaluation now considers energy balance and TDEE"
+    ]
+  },
+  {
     "version": "0.9.75",
     "date": "2026-03-13",
     "changes": [

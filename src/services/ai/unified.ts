@@ -1161,15 +1161,21 @@ export function generateSmartGreeting(context: UnifiedContext): GreetingScenario
 
 export interface ReportData {
   type: 'daily' | 'weekly';
-  periodLabel: string;         // e.g. "Monday – Wednesday" or "This Week"
+  periodLabel: string;         // e.g. "Mon 10 Mar – Thu 13 Mar"
+  dateRange: string;           // e.g. "10 Mar – 13 Mar"
   daysTracked: number;         // how many days in the period
   avgProtein: number;          // average daily protein (g)
   avgCalories: number;         // average daily calories (kcal)
   proteinGoal: number;         // daily protein target
   calorieGoal: number;         // daily calorie target
-  totalCalorieBalance: number; // sum of (intake - goal) across days, negative = deficit
+  // Energy balance (TDEE-based)
+  avgDailyBalance: number;     // average daily energy balance (intake - TDEE), negative = deficit
+  weekTotalBalance: number;    // total energy balance for the period
+  weeklyBalanceTarget: number; // weekly target (negative = deficit)
+  bmr: number;                 // BMR used in calculations
   trainingCount: number;       // number of training sessions
   trainingGoal: number;        // weekly training target
+  trainingCaloriesBurn: number; // calories per training session
   avgSleepMinutes: number;     // average nightly sleep (minutes)
   sleepGoal: number;           // nightly sleep target (minutes)
   daysWithSleep: number;       // days that have sleep data
@@ -1193,6 +1199,9 @@ export async function collectReportData(
   calorieGoal: number,
   trainingGoal: number,
   sleepGoalMinutes: number,
+  bmr: number,
+  trainingCaloriesBurn: number,
+  weeklyBalanceTarget: number,
 ): Promise<ReportData> {
   const [foodEntries, sleepEntries, trainingEntries] = await Promise.all([
     getEntriesForDateRange(startDate, endDate),
@@ -1209,6 +1218,12 @@ export async function collectReportData(
     foodByDate.set(entry.date, existing);
   }
 
+  // Group training by date for per-day TDEE calculation
+  const trainingByDate = new Map<string, number>();
+  for (const entry of trainingEntries) {
+    trainingByDate.set(entry.date, (trainingByDate.get(entry.date) || 0) + 1);
+  }
+
   // Count days in range
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -1223,8 +1238,15 @@ export async function collectReportData(
     totalCalories += day.calories;
   }
 
-  // Calorie balance: sum of (intake - goal) for each day in range
-  const totalCalorieBalance = totalCalories - (calorieGoal * daysWithFood);
+  // Energy balance: intake - TDEE (BMR + training burn) per day
+  // Only count days that have food data for a fair comparison
+  let totalBalance = 0;
+  for (const [date, food] of foodByDate.entries()) {
+    const trainingSessions = trainingByDate.get(date) || 0;
+    const tdee = bmr + (trainingSessions * trainingCaloriesBurn);
+    totalBalance += food.calories - tdee;
+  }
+  const avgDailyBalance = daysWithFood > 0 ? Math.round(totalBalance / daysWithFood) : 0;
 
   // Sleep
   const sleepByDate = new Map<string, number>();
@@ -1237,26 +1259,34 @@ export async function collectReportData(
     totalSleep += duration;
   }
 
-  // Period label
-  const startDay = fmtDate(new Date(startDate), 'EEEE');
-  const endDay = fmtDate(new Date(endDate), 'EEEE');
-  const periodLabel = type === 'weekly'
-    ? 'This Week'
-    : startDate === endDate
-      ? startDay
-      : `${startDay} – ${endDay}`;
+  // Period label with dates
+  const startDt = new Date(startDate);
+  const endDt = new Date(endDate);
+  const startLabel = fmtDate(startDt, 'EEE d MMM');
+  const endLabel = fmtDate(endDt, 'EEE d MMM');
+  const dateRange = startDate === endDate
+    ? fmtDate(startDt, 'd MMM')
+    : `${fmtDate(startDt, 'd MMM')} – ${fmtDate(endDt, 'd MMM')}`;
+  const periodLabel = startDate === endDate
+    ? startLabel
+    : `${startLabel} – ${endLabel}`;
 
   return {
     type,
     periodLabel,
+    dateRange,
     daysTracked: totalDays,
     avgProtein: Math.round(totalProtein / daysWithFood),
     avgCalories: Math.round(totalCalories / daysWithFood),
     proteinGoal,
     calorieGoal,
-    totalCalorieBalance: Math.round(totalCalorieBalance),
+    avgDailyBalance,
+    weekTotalBalance: Math.round(totalBalance),
+    weeklyBalanceTarget,
+    bmr,
     trainingCount: trainingEntries.length,
     trainingGoal,
+    trainingCaloriesBurn,
     avgSleepMinutes: sleepByDate.size > 0 ? Math.round(totalSleep / sleepByDate.size) : 0,
     sleepGoal: sleepGoalMinutes,
     daysWithSleep: sleepByDate.size,
@@ -1275,20 +1305,34 @@ export function formatReportMessage(data: ReportData): string {
   const sleepGoalStr = sleepGoalM > 0 ? `${sleepGoalH}h ${sleepGoalM}m` : `${sleepGoalH}h`;
 
   const header = data.type === 'weekly' ? '📊 Weekly Report' : '📋 Daily Report';
-  const balanceLabel = data.totalCalorieBalance >= 0 ? 'surplus' : 'deficit';
-  const balanceAbs = Math.abs(data.totalCalorieBalance);
 
   const proteinIcon = data.avgProtein >= data.proteinGoal ? '✅' : '⚠️';
+  const proteinPct = Math.round((data.avgProtein / data.proteinGoal) * 100);
   const trainingIcon = data.trainingCount >= data.trainingGoal ? '✅' : data.trainingCount > 0 ? '🔄' : '⚠️';
   const sleepIcon = data.daysWithSleep === 0 ? '—' : data.avgSleepMinutes >= data.sleepGoal ? '✅' : '⚠️';
+
+  // Energy balance formatting
+  const avgBalanceLabel = data.avgDailyBalance >= 0 ? 'surplus' : 'deficit';
+  const avgBalanceAbs = Math.abs(data.avgDailyBalance);
+  const weekBalanceLabel = data.weekTotalBalance >= 0 ? 'surplus' : 'deficit';
+  const weekBalanceAbs = Math.abs(data.weekTotalBalance);
+
+  // Check if balance target is set and meaningful
+  const hasBalanceTarget = data.weeklyBalanceTarget !== 0;
+  const dailyTarget = hasBalanceTarget ? Math.round(data.weeklyBalanceTarget / 7) : 0;
+  const balanceOnTrack = hasBalanceTarget
+    ? (data.weeklyBalanceTarget < 0 ? data.avgDailyBalance <= dailyTarget : data.avgDailyBalance >= dailyTarget)
+    : false;
+  const balanceIcon = !hasBalanceTarget ? '📉' : balanceOnTrack ? '✅' : '⚠️';
 
   const lines = [
     `**${header}** · ${data.periodLabel}`,
     '',
-    `${proteinIcon} **Protein** — ${data.avgProtein}g avg / ${data.proteinGoal}g goal`,
+    `${proteinIcon} **Protein** — ${data.avgProtein}g / ${data.proteinGoal}g (~${proteinPct}%)`,
     `🔥 **Calories** — ${data.avgCalories} kcal avg / ${data.calorieGoal} goal`,
-    `📉 **Balance** — ${balanceAbs} kcal ${balanceLabel} over ${data.daysTracked} day${data.daysTracked > 1 ? 's' : ''}`,
-    `${trainingIcon} **Training** — ${data.trainingCount} session${data.trainingCount !== 1 ? 's' : ''} / ${data.trainingGoal} goal`,
+    `${balanceIcon} **Energy** — ~${avgBalanceAbs} kcal ${avgBalanceLabel}/day${hasBalanceTarget ? ` (target: ${Math.abs(dailyTarget)} ${data.weeklyBalanceTarget < 0 ? 'deficit' : 'surplus'})` : ''}`,
+    `📉 **Week total** — ~${weekBalanceAbs} kcal ${weekBalanceLabel} (${data.dateRange})`,
+    `${trainingIcon} **Training** — ${data.trainingCount}/${data.trainingGoal} sessions`,
   ];
 
   if (data.daysWithSleep > 0) {
@@ -1304,11 +1348,14 @@ export function formatReportMessage(data: ReportData): string {
  * Generate AI evaluation for the report (1-2 lines)
  */
 export function buildReportEvalPrompt(data: ReportData): string {
+  const dailyTarget = data.weeklyBalanceTarget !== 0 ? Math.round(data.weeklyBalanceTarget / 7) : null;
   return `You are a concise fitness coach. Write exactly 1-2 SHORT sentences evaluating this ${data.type} progress report. Be encouraging but honest. Focus on the most notable thing — good or bad.
 
 Data:
 - Protein: ${data.avgProtein}g avg vs ${data.proteinGoal}g goal
-- Calories: ${data.avgCalories} avg vs ${data.calorieGoal} goal (${data.totalCalorieBalance >= 0 ? '+' : ''}${data.totalCalorieBalance} kcal total)
+- Calories: ${data.avgCalories} avg vs ${data.calorieGoal} goal
+- Energy balance: ${data.avgDailyBalance >= 0 ? '+' : ''}${data.avgDailyBalance} kcal/day avg (BMR ${data.bmr}, ${data.trainingCount} training sessions at ~${data.trainingCaloriesBurn} kcal each)
+- Week total balance: ${data.weekTotalBalance >= 0 ? '+' : ''}${data.weekTotalBalance} kcal${dailyTarget ? ` (daily target: ${dailyTarget >= 0 ? '+' : ''}${dailyTarget} kcal, weekly target: ${data.weeklyBalanceTarget >= 0 ? '+' : ''}${data.weeklyBalanceTarget} kcal)` : ''}
 - Training: ${data.trainingCount}/${data.trainingGoal} sessions
 - Sleep: ${data.daysWithSleep > 0 ? `${Math.round(data.avgSleepMinutes / 60 * 10) / 10}h avg vs ${Math.round(data.sleepGoal / 60 * 10) / 10}h goal` : 'not tracked'}
 - Period: ${data.daysTracked} days

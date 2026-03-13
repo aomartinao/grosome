@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Target, Moon, Dumbbell, ChevronRight, ChevronLeft, Minus, Plus, LogIn, UserPlus, Loader2, MessageSquare, Camera, Utensils } from 'lucide-react';
+import { Target, Moon, Dumbbell, ChevronRight, ChevronLeft, Minus, Plus, LogIn, UserPlus, Loader2, MessageSquare, Camera, Utensils, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -34,6 +34,8 @@ export function Onboarding() {
   const [sleepGoalMinutes, setSleepGoalMinutes] = useState(480);
   const [trainingEnabled, setTrainingEnabled] = useState(true);
   const [trainingGoalPerWeek, setTrainingGoalPerWeek] = useState(3);
+  const [bmr, setBmr] = useState<number | undefined>();
+  const [weeklyBalanceTarget, setWeeklyBalanceTarget] = useState<number | undefined>();
   const [saving, setSaving] = useState(false);
 
   const currentIndex = STEPS.indexOf(step);
@@ -58,6 +60,8 @@ export function Onboarding() {
       sleepGoalMinutes: sleepEnabled ? sleepGoalMinutes : undefined,
       trainingTrackingEnabled: trainingEnabled,
       trainingGoalPerWeek: trainingEnabled ? trainingGoalPerWeek : undefined,
+      bmr: bmr || undefined,
+      weeklyBalanceTarget: weeklyBalanceTarget || undefined,
       onboardingCompleted: true,
     });
     window.location.href = '/coach';
@@ -102,6 +106,10 @@ export function Onboarding() {
             setTrainingEnabled={setTrainingEnabled}
             trainingGoalPerWeek={trainingGoalPerWeek}
             setTrainingGoalPerWeek={setTrainingGoalPerWeek}
+            bmr={bmr}
+            setBmr={setBmr}
+            weeklyBalanceTarget={weeklyBalanceTarget}
+            setWeeklyBalanceTarget={setWeeklyBalanceTarget}
             onComplete={completeOnboarding}
             onBack={back}
             saving={saving}
@@ -223,6 +231,10 @@ function GoalsStep({
   setTrainingEnabled,
   trainingGoalPerWeek,
   setTrainingGoalPerWeek,
+  bmr,
+  setBmr,
+  weeklyBalanceTarget,
+  setWeeklyBalanceTarget,
   onComplete,
   onBack,
   saving,
@@ -237,6 +249,10 @@ function GoalsStep({
   setTrainingEnabled: (e: boolean) => void;
   trainingGoalPerWeek: number;
   setTrainingGoalPerWeek: (g: number) => void;
+  bmr: number | undefined;
+  setBmr: (v: number | undefined) => void;
+  weeklyBalanceTarget: number | undefined;
+  setWeeklyBalanceTarget: (v: number | undefined) => void;
   onComplete: () => void;
   onBack: () => void;
   saving: boolean;
@@ -419,6 +435,52 @@ function GoalsStep({
             </button>
           </div>
         )}
+      </div>
+
+      {/* Energy Balance - Optional */}
+      <div className="bg-card rounded-2xl shadow-sm p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl p-2 bg-orange-500/10">
+            <Scale className="h-4 w-4 text-orange-500" />
+          </div>
+          <div>
+            <span className="font-medium text-sm">Energy balance</span>
+            <p className="text-xs text-muted-foreground">Optional — for deficit/surplus tracking in reports</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 pl-11">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-20">BMR</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="e.g. 1800"
+              value={bmr || ''}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                setBmr(val > 0 ? val : undefined);
+              }}
+              className="flex-1 h-9 px-3 rounded-xl bg-muted text-sm border-0 focus:ring-2 focus:ring-primary/30 outline-none text-center"
+            />
+            <span className="text-xs text-muted-foreground">kcal/day</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-20">Weekly goal</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="e.g. 3500"
+              value={weeklyBalanceTarget ? Math.abs(weeklyBalanceTarget) : ''}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                setWeeklyBalanceTarget(val > 0 ? -val : undefined);
+              }}
+              className="flex-1 h-9 px-3 rounded-xl bg-muted text-sm border-0 focus:ring-2 focus:ring-primary/30 outline-none text-center"
+            />
+            <span className="text-xs text-muted-foreground">kcal deficit</span>
+          </div>
+        </div>
       </div>
 
       {/* Navigation */}

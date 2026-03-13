@@ -20,6 +20,9 @@ import {
   Ruler,
   Flame,
   Shield,
+  Scale,
+  TrendingDown,
+  Activity,
 } from 'lucide-react';
 import { useUpdateAvailable } from '@/hooks/useUpdateAvailable';
 import { version } from '../../package.json';
@@ -444,6 +447,106 @@ export function Settings() {
                   enabled={!!settings.trainingTrackingEnabled}
                   onChange={() => updateSettings({ trainingTrackingEnabled: !settings.trainingTrackingEnabled })}
                   size="small"
+                />
+              </div>
+            }
+          />
+        </SettingsSection>
+
+        {/* Energy Balance */}
+        <SettingsSection title="Energy Balance">
+          <SettingsRow
+            icon={Scale}
+            iconColor="text-orange-500"
+            label="BMR"
+            description="Basal metabolic rate (kcal/day)"
+            action={
+              <Input
+                type="number"
+                value={settings.bmr || ''}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (val > 0 && val <= 5000) {
+                    updateSettings({ bmr: val });
+                  } else if (!e.target.value) {
+                    updateSettings({ bmr: undefined });
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                min={800}
+                max={5000}
+                placeholder="e.g. 1800"
+                className="w-24 h-8 text-sm text-center"
+              />
+            }
+          />
+          <SettingsRow
+            icon={Activity}
+            iconColor="text-red-500"
+            label="Training burn"
+            description="Estimated kcal per session"
+            action={
+              <Input
+                type="number"
+                value={settings.trainingCaloriesBurn || ''}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (val > 0 && val <= 2000) {
+                    updateSettings({ trainingCaloriesBurn: val });
+                  } else if (!e.target.value) {
+                    updateSettings({ trainingCaloriesBurn: undefined });
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                min={100}
+                max={2000}
+                placeholder="400"
+                className="w-24 h-8 text-sm text-center"
+              />
+            }
+          />
+          <SettingsRow
+            icon={TrendingDown}
+            iconColor="text-blue-500"
+            label="Weekly target"
+            description={settings.weeklyBalanceTarget
+              ? `${Math.abs(settings.weeklyBalanceTarget)} kcal ${settings.weeklyBalanceTarget < 0 ? 'deficit' : 'surplus'}/week`
+              : 'Not set'}
+            action={
+              <div className="flex items-center gap-1">
+                <select
+                  value={settings.weeklyBalanceTarget !== undefined && settings.weeklyBalanceTarget !== 0
+                    ? (settings.weeklyBalanceTarget < 0 ? 'deficit' : 'surplus')
+                    : 'deficit'}
+                  onChange={(e) => {
+                    const currentAbs = Math.abs(settings.weeklyBalanceTarget || 3500);
+                    updateSettings({
+                      weeklyBalanceTarget: e.target.value === 'deficit' ? -currentAbs : currentAbs,
+                    });
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-muted text-xs rounded-lg px-1.5 py-1.5 border-0 focus:ring-2 focus:ring-primary"
+                >
+                  <option value="deficit">Deficit</option>
+                  <option value="surplus">Surplus</option>
+                </select>
+                <Input
+                  type="number"
+                  value={settings.weeklyBalanceTarget ? Math.abs(settings.weeklyBalanceTarget) : ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    const sign = (settings.weeklyBalanceTarget || 0) >= 0 ? 1 : -1;
+                    if (val > 0 && val <= 10000) {
+                      updateSettings({ weeklyBalanceTarget: sign * val });
+                    } else if (!e.target.value) {
+                      updateSettings({ weeklyBalanceTarget: undefined });
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  min={500}
+                  max={10000}
+                  placeholder="3500"
+                  className="w-20 h-8 text-sm text-center"
                 />
               </div>
             }

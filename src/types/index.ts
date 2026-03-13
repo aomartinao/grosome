@@ -78,6 +78,10 @@ export interface UserSettings {
   trainingGoalPerWeek?: number;              // training sessions per week target
   trainingTrackingEnabled?: boolean;
   onboardingCompleted?: boolean;             // GRRROMODE onboarding completed
+  // Energy balance settings
+  bmr?: number;                              // Basal Metabolic Rate in kcal/day
+  trainingCaloriesBurn?: number;             // Estimated calories burned per training session
+  weeklyBalanceTarget?: number;              // Weekly energy balance target in kcal (negative = deficit)
   // Periodic reports
   lastDailyReportDate?: string;              // YYYY-MM-DD of last daily report shown
   lastWeeklyReportDate?: string;             // YYYY-MM-DD of last weekly report shown
