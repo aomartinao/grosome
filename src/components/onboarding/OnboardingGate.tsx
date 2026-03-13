@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useSettings } from '@/hooks/useProteinData';
 import { db } from '@/db';
 import { Onboarding } from '@/pages/Onboarding';
@@ -23,12 +23,14 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   const { settings, updateSettings, settingsLoaded } = useSettings();
   const [checked, setChecked] = useState(wasOnboardingCompleted);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const decided = useRef(false);
 
   useEffect(() => {
-    if (!settingsLoaded) return;
+    if (!settingsLoaded || decided.current) return;
 
     // Already completed onboarding
     if (settings.onboardingCompleted) {
+      decided.current = true;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setChecked(true);
       setShowOnboarding(false);
@@ -39,6 +41,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     const wasExplicitRerun = sessionStorage.getItem('rerun-onboarding') === 'true';
     if (wasExplicitRerun) {
       sessionStorage.removeItem('rerun-onboarding');
+      decided.current = true;
       setShowOnboarding(true);
       setChecked(true);
       return;
@@ -46,6 +49,8 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
     // Check if existing user (has food entries) — skip onboarding for them
     db.foodEntries.count().then((count) => {
+      if (decided.current) return;
+      decided.current = true;
       if (count > 0) {
         updateSettings({ onboardingCompleted: true });
         setShowOnboarding(false);
