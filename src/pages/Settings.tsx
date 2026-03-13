@@ -23,6 +23,7 @@ import {
   Scale,
   TrendingDown,
   Activity,
+  User,
 } from 'lucide-react';
 import { useUpdateAvailable } from '@/hooks/useUpdateAvailable';
 import { version } from '../../package.json';
@@ -455,6 +456,107 @@ export function Settings() {
 
         {/* Energy Balance */}
         <SettingsSection title="Energy Balance">
+          <SettingsRow
+            icon={User}
+            iconColor="text-violet-500"
+            label="Body stats"
+            description={[
+              settings.sex,
+              settings.weightKg ? `${settings.weightKg} kg` : null,
+              settings.heightCm ? `${settings.heightCm} cm` : null,
+              settings.birthYear ? `born ${settings.birthYear}` : null,
+            ].filter(Boolean).join(', ') || 'Not set — needed for BMR calculation'}
+            action={
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <select
+                    value={settings.sex || ''}
+                    onChange={(e) => {
+                      const val = e.target.value as 'male' | 'female' | '';
+                      const newSex = val || undefined;
+                      updateSettings({ sex: newSex });
+                      // Recalculate BMR if all stats available
+                      if (newSex && settings.weightKg && settings.heightCm && settings.birthYear) {
+                        const age = new Date().getFullYear() - settings.birthYear;
+                        updateSettings({ sex: newSex, bmr: calculateBMR(settings.weightKg, settings.heightCm, age, newSex) });
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-muted text-sm rounded-lg px-2 py-1.5 border-0 focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Sex</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                  <Input
+                    type="number"
+                    value={settings.birthYear || ''}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (val > 1900 && val <= new Date().getFullYear()) {
+                        updateSettings({ birthYear: val });
+                        if (settings.sex && settings.weightKg && settings.heightCm) {
+                          const age = new Date().getFullYear() - val;
+                          updateSettings({ birthYear: val, bmr: calculateBMR(settings.weightKg, settings.heightCm, age, settings.sex) });
+                        }
+                      } else if (!e.target.value) {
+                        updateSettings({ birthYear: undefined });
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="Year"
+                    className="w-20 h-8 text-sm text-center"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      value={settings.weightKg || ''}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (val > 0 && val < 300) {
+                          updateSettings({ weightKg: val });
+                          if (settings.sex && settings.heightCm && settings.birthYear) {
+                            const age = new Date().getFullYear() - settings.birthYear;
+                            updateSettings({ weightKg: val, bmr: calculateBMR(val, settings.heightCm, age, settings.sex) });
+                          }
+                        } else if (!e.target.value) {
+                          updateSettings({ weightKg: undefined });
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="kg"
+                      className="w-16 h-8 text-sm text-center"
+                    />
+                    <span className="text-xs text-muted-foreground">kg</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      value={settings.heightCm || ''}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (val > 0 && val <= 300) {
+                          updateSettings({ heightCm: val });
+                          if (settings.sex && settings.weightKg && settings.birthYear) {
+                            const age = new Date().getFullYear() - settings.birthYear;
+                            updateSettings({ heightCm: val, bmr: calculateBMR(settings.weightKg, val, age, settings.sex) });
+                          }
+                        } else if (!e.target.value) {
+                          updateSettings({ heightCm: undefined });
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="cm"
+                      className="w-16 h-8 text-sm text-center"
+                    />
+                    <span className="text-xs text-muted-foreground">cm</span>
+                  </div>
+                </div>
+              </div>
+            }
+          />
           <SettingsRow
             icon={Scale}
             iconColor="text-orange-500"
