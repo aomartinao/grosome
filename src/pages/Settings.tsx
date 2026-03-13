@@ -127,18 +127,21 @@ function SettingsRow({
 // Settings section component
 function SettingsSection({
   title,
+  titleAction,
   children
 }: {
   title?: string;
+  titleAction?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1">
       {title && (
-        <div className="px-4 py-2">
+        <div className="px-4 py-2 flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             {title}
           </span>
+          {titleAction}
         </div>
       )}
       <div className="bg-card rounded-2xl overflow-hidden shadow-sm divide-y divide-border/50">
@@ -454,8 +457,23 @@ export function Settings() {
           />
         </SettingsSection>
 
-        {/* Energy Balance */}
-        <SettingsSection title="Energy Balance">
+        {/* Body & Energy */}
+        <SettingsSection
+          title="Body & Energy"
+          titleAction={
+            <button
+              onClick={async () => {
+                sessionStorage.setItem('rerun-onboarding', 'true');
+                await updateSettings({ onboardingCompleted: false });
+                window.location.href = '/';
+              }}
+              className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Re-run setup
+            </button>
+          }
+        >
           <SettingsRow
             icon={User}
             iconColor="text-violet-500"
@@ -799,17 +817,6 @@ export function Settings() {
                 {storageStats ? formatBytes(storageStats.total) : '–'}
               </span>
             }
-          />
-          <SettingsRow
-            icon={RotateCcw}
-            iconColor="text-muted-foreground"
-            label="Re-run Onboarding"
-            description="Set up your goals again"
-            onClick={async () => {
-              sessionStorage.setItem('rerun-onboarding', 'true');
-              await updateSettings({ onboardingCompleted: false });
-              window.location.href = '/';
-            }}
           />
           <SettingsRow
             icon={Trash2}

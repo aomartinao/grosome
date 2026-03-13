@@ -5,6 +5,10 @@ import { Onboarding } from '@/pages/Onboarding';
 
 // Quick synchronous check of localStorage to avoid flash while async DB loads
 function wasOnboardingCompleted(): boolean {
+  // If user explicitly re-ran onboarding, treat as not completed
+  if (sessionStorage.getItem('rerun-onboarding') === 'true') {
+    return false;
+  }
   try {
     const raw = localStorage.getItem('grosome-storage');
     if (raw) {
@@ -31,8 +35,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Check if existing user (has food entries) — skip onboarding for them
-    // BUT: if user explicitly re-ran onboarding (via settings), always show it
+    // If user explicitly re-ran onboarding (via settings), always show it
     const wasExplicitRerun = sessionStorage.getItem('rerun-onboarding') === 'true';
     if (wasExplicitRerun) {
       sessionStorage.removeItem('rerun-onboarding');
@@ -41,6 +44,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Check if existing user (has food entries) — skip onboarding for them
     db.foodEntries.count().then((count) => {
       if (count > 0) {
         updateSettings({ onboardingCompleted: true });
