@@ -1282,7 +1282,7 @@ export function formatReportMessage(data: ReportData): string {
   const trainingIcon = data.trainingCount >= data.trainingGoal ? '✅' : data.trainingCount > 0 ? '🔄' : '⚠️';
   const sleepIcon = data.daysWithSleep === 0 ? '—' : data.avgSleepMinutes >= data.sleepGoal ? '✅' : '⚠️';
 
-  let lines = [
+  const lines = [
     `**${header}** · ${data.periodLabel}`,
     '',
     `${proteinIcon} **Protein** — ${data.avgProtein}g avg / ${data.proteinGoal}g goal`,
