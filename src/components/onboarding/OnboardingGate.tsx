@@ -32,6 +32,15 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     }
 
     // Check if existing user (has food entries) — skip onboarding for them
+    // BUT: if user explicitly re-ran onboarding (via settings), always show it
+    const wasExplicitRerun = sessionStorage.getItem('rerun-onboarding') === 'true';
+    if (wasExplicitRerun) {
+      sessionStorage.removeItem('rerun-onboarding');
+      setShowOnboarding(true);
+      setChecked(true);
+      return;
+    }
+
     db.foodEntries.count().then((count) => {
       if (count > 0) {
         updateSettings({ onboardingCompleted: true });

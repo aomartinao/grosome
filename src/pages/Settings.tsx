@@ -704,6 +704,7 @@ export function Settings() {
             label="Re-run Onboarding"
             description="Set up your goals again"
             onClick={async () => {
+              sessionStorage.setItem('rerun-onboarding', 'true');
               await updateSettings({ onboardingCompleted: false });
               window.location.href = '/';
             }}
