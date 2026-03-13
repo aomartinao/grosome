@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.9.77",
+    "date": "2026-03-14",
+    "changes": [
+      "Weight goal: set weekly target in kg (e.g. lose 0.5 kg/week) instead of raw kcal",
+      "Auto-calculated BMR from body stats (Mifflin-St Jeor equation)",
+      "Onboarding collects body stats (weight, height, birth year, sex) for BMR",
+      "Weight goal presets in onboarding with daily deficit shown",
+      "Settings: BMR auto-calculates from body stats, manual override available"
+    ]
+  },
+  {
     "version": "0.9.76",
     "date": "2026-03-14",
     "changes": [

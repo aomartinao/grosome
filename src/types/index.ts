@@ -78,10 +78,16 @@ export interface UserSettings {
   trainingGoalPerWeek?: number;              // training sessions per week target
   trainingTrackingEnabled?: boolean;
   onboardingCompleted?: boolean;             // GRRROMODE onboarding completed
+  // Body stats (for BMR calculation)
+  sex?: 'male' | 'female';
+  heightCm?: number;                         // Height in cm
+  birthYear?: number;                        // For age calculation
+  weightKg?: number;                         // Body weight in kg
   // Energy balance settings
-  bmr?: number;                              // Basal Metabolic Rate in kcal/day
+  bmr?: number;                              // Basal Metabolic Rate in kcal/day (auto-calculated or manual override)
   trainingCaloriesBurn?: number;             // Estimated calories burned per training session
-  weeklyBalanceTarget?: number;              // Weekly energy balance target in kcal (negative = deficit)
+  weeklyWeightChangeKg?: number;             // Target weight change per week in kg (negative = loss)
+  weeklyBalanceTarget?: number;              // Derived: weeklyWeightChangeKg × 7700 (kcal, negative = deficit)
   // Periodic reports
   lastDailyReportDate?: string;              // YYYY-MM-DD of last daily report shown
   lastWeeklyReportDate?: string;             // YYYY-MM-DD of last weekly report shown

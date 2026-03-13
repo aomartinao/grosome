@@ -35,7 +35,7 @@ import { useStore } from '@/store/useStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getSupabase } from '@/services/supabase';
 import { db, saveUserSettings } from '@/db';
-import { cn } from '@/lib/utils';
+import { cn, calculateBMR, KCAL_PER_KG } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -459,7 +459,18 @@ export function Settings() {
             icon={Scale}
             iconColor="text-orange-500"
             label="BMR"
-            description="Basal metabolic rate (kcal/day)"
+            description={(() => {
+              // Auto-calculate if body stats are available
+              if (settings.weightKg && settings.heightCm && settings.birthYear && settings.sex) {
+                const age = new Date().getFullYear() - settings.birthYear;
+                const calc = calculateBMR(settings.weightKg, settings.heightCm, age, settings.sex);
+                if (settings.bmr && settings.bmr !== calc) {
+                  return `Estimated: ${calc} kcal (overridden)`;
+                }
+                return `Estimated: ${calc} kcal/day`;
+              }
+              return settings.bmr ? `${settings.bmr} kcal/day` : 'Set body stats in onboarding or enter manually';
+            })()}
             action={
               <Input
                 type="number"
@@ -469,14 +480,20 @@ export function Settings() {
                   if (val > 0 && val <= 5000) {
                     updateSettings({ bmr: val });
                   } else if (!e.target.value) {
-                    updateSettings({ bmr: undefined });
+                    // Reset to auto-calculated if body stats exist
+                    if (settings.weightKg && settings.heightCm && settings.birthYear && settings.sex) {
+                      const age = new Date().getFullYear() - settings.birthYear;
+                      updateSettings({ bmr: calculateBMR(settings.weightKg, settings.heightCm, age, settings.sex) });
+                    } else {
+                      updateSettings({ bmr: undefined });
+                    }
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
                 min={800}
                 max={5000}
-                placeholder="e.g. 1800"
-                className="w-24 h-8 text-sm text-center"
+                placeholder="auto"
+                className="w-20 h-8 text-sm text-center"
               />
             }
           />
@@ -501,54 +518,44 @@ export function Settings() {
                 min={100}
                 max={2000}
                 placeholder="400"
-                className="w-24 h-8 text-sm text-center"
+                className="w-20 h-8 text-sm text-center"
               />
             }
           />
           <SettingsRow
             icon={TrendingDown}
             iconColor="text-blue-500"
-            label="Weekly target"
-            description={settings.weeklyBalanceTarget
-              ? `${Math.abs(settings.weeklyBalanceTarget)} kcal ${settings.weeklyBalanceTarget < 0 ? 'deficit' : 'surplus'}/week`
+            label="Weight goal"
+            description={settings.weeklyWeightChangeKg !== undefined
+              ? `${Math.abs(settings.weeklyWeightChangeKg)} kg/${settings.weeklyWeightChangeKg < 0 ? 'loss' : settings.weeklyWeightChangeKg > 0 ? 'gain' : 'maintain'}/week (~${Math.abs(Math.round((settings.weeklyWeightChangeKg * KCAL_PER_KG) / 7))} kcal/day)`
               : 'Not set'}
             action={
-              <div className="flex items-center gap-1">
-                <select
-                  value={settings.weeklyBalanceTarget !== undefined && settings.weeklyBalanceTarget !== 0
-                    ? (settings.weeklyBalanceTarget < 0 ? 'deficit' : 'surplus')
-                    : 'deficit'}
-                  onChange={(e) => {
-                    const currentAbs = Math.abs(settings.weeklyBalanceTarget || 3500);
+              <select
+                value={settings.weeklyWeightChangeKg !== undefined ? String(settings.weeklyWeightChangeKg) : ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    updateSettings({ weeklyWeightChangeKg: undefined, weeklyBalanceTarget: undefined });
+                  } else {
+                    const kg = parseFloat(val);
                     updateSettings({
-                      weeklyBalanceTarget: e.target.value === 'deficit' ? -currentAbs : currentAbs,
+                      weeklyWeightChangeKg: kg,
+                      weeklyBalanceTarget: Math.round(kg * KCAL_PER_KG),
                     });
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="bg-muted text-xs rounded-lg px-1.5 py-1.5 border-0 focus:ring-2 focus:ring-primary"
-                >
-                  <option value="deficit">Deficit</option>
-                  <option value="surplus">Surplus</option>
-                </select>
-                <Input
-                  type="number"
-                  value={settings.weeklyBalanceTarget ? Math.abs(settings.weeklyBalanceTarget) : ''}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    const sign = (settings.weeklyBalanceTarget || 0) >= 0 ? 1 : -1;
-                    if (val > 0 && val <= 10000) {
-                      updateSettings({ weeklyBalanceTarget: sign * val });
-                    } else if (!e.target.value) {
-                      updateSettings({ weeklyBalanceTarget: undefined });
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  min={500}
-                  max={10000}
-                  placeholder="3500"
-                  className="w-20 h-8 text-sm text-center"
-                />
-              </div>
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-muted text-sm rounded-lg px-2 py-1.5 border-0 focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Not set</option>
+                <option value="-1">Lose 1 kg/w</option>
+                <option value="-0.75">Lose 0.75</option>
+                <option value="-0.5">Lose 0.5</option>
+                <option value="-0.25">Lose 0.25</option>
+                <option value="0">Maintain</option>
+                <option value="0.25">Gain 0.25</option>
+                <option value="0.5">Gain 0.5</option>
+              </select>
             }
           />
         </SettingsSection>

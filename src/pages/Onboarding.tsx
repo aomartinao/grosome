@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Target, Moon, Dumbbell, ChevronRight, ChevronLeft, Minus, Plus, LogIn, UserPlus, Loader2, MessageSquare, Camera, Utensils, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useSettings } from '@/hooks/useProteinData';
 import { db } from '@/db';
-import { cn } from '@/lib/utils';
+import { cn, calculateBMR, KCAL_PER_KG } from '@/lib/utils';
 
 type Step = 'welcome' | 'goals';
 
@@ -26,16 +26,26 @@ const INTENSITY_PRESETS = [
   { label: 'Maximum', factor: 2.2, desc: 'Athletes' },
 ];
 
+const WEIGHT_CHANGE_PRESETS = [
+  { label: 'Lose 1 kg', value: -1.0 },
+  { label: 'Lose 0.5', value: -0.5 },
+  { label: 'Maintain', value: 0 },
+  { label: 'Gain 0.5', value: 0.5 },
+];
+
 export function Onboarding() {
   const { updateSettings } = useSettings();
   const [step, setStep] = useState<Step>('welcome');
+  const [weightKg, setWeightKg] = useState<string>('');
   const [proteinGoal, setProteinGoal] = useState(150);
   const [sleepEnabled, setSleepEnabled] = useState(true);
   const [sleepGoalMinutes, setSleepGoalMinutes] = useState(480);
   const [trainingEnabled, setTrainingEnabled] = useState(true);
   const [trainingGoalPerWeek, setTrainingGoalPerWeek] = useState(3);
-  const [bmr, setBmr] = useState<number | undefined>();
-  const [weeklyBalanceTarget, setWeeklyBalanceTarget] = useState<number | undefined>();
+  const [sex, setSex] = useState<'male' | 'female' | undefined>();
+  const [heightCm, setHeightCm] = useState<string>('');
+  const [birthYear, setBirthYear] = useState<string>('');
+  const [weeklyWeightChange, setWeeklyWeightChange] = useState<number | undefined>();
   const [saving, setSaving] = useState(false);
 
   const currentIndex = STEPS.indexOf(step);
@@ -54,14 +64,28 @@ export function Onboarding() {
 
   async function completeOnboarding() {
     setSaving(true);
+    const weight = parseFloat(weightKg);
+    const height = parseFloat(heightCm);
+    const year = parseInt(birthYear, 10);
+    const age = year > 0 ? new Date().getFullYear() - year : 0;
+    const canCalcBmr = weight > 0 && height > 0 && age > 0 && sex;
+    const bmr = canCalcBmr ? calculateBMR(weight, height, age, sex) : undefined;
+    const weeklyBalanceTarget = weeklyWeightChange !== undefined
+      ? Math.round(weeklyWeightChange * KCAL_PER_KG)
+      : undefined;
     await updateSettings({
       defaultGoal: proteinGoal,
       sleepTrackingEnabled: sleepEnabled,
       sleepGoalMinutes: sleepEnabled ? sleepGoalMinutes : undefined,
       trainingTrackingEnabled: trainingEnabled,
       trainingGoalPerWeek: trainingEnabled ? trainingGoalPerWeek : undefined,
-      bmr: bmr || undefined,
-      weeklyBalanceTarget: weeklyBalanceTarget || undefined,
+      sex: sex || undefined,
+      heightCm: height > 0 ? height : undefined,
+      birthYear: year > 0 ? year : undefined,
+      weightKg: weight > 0 ? weight : undefined,
+      bmr,
+      weeklyWeightChangeKg: weeklyWeightChange,
+      weeklyBalanceTarget,
       onboardingCompleted: true,
     });
     window.location.href = '/coach';
@@ -106,10 +130,16 @@ export function Onboarding() {
             setTrainingEnabled={setTrainingEnabled}
             trainingGoalPerWeek={trainingGoalPerWeek}
             setTrainingGoalPerWeek={setTrainingGoalPerWeek}
-            bmr={bmr}
-            setBmr={setBmr}
-            weeklyBalanceTarget={weeklyBalanceTarget}
-            setWeeklyBalanceTarget={setWeeklyBalanceTarget}
+            weightKg={weightKg}
+            setWeightKg={setWeightKg}
+            sex={sex}
+            setSex={setSex}
+            heightCm={heightCm}
+            setHeightCm={setHeightCm}
+            birthYear={birthYear}
+            setBirthYear={setBirthYear}
+            weeklyWeightChange={weeklyWeightChange}
+            setWeeklyWeightChange={setWeeklyWeightChange}
             onComplete={completeOnboarding}
             onBack={back}
             saving={saving}
@@ -231,10 +261,16 @@ function GoalsStep({
   setTrainingEnabled,
   trainingGoalPerWeek,
   setTrainingGoalPerWeek,
-  bmr,
-  setBmr,
-  weeklyBalanceTarget,
-  setWeeklyBalanceTarget,
+  weightKg,
+  setWeightKg,
+  sex,
+  setSex,
+  heightCm,
+  setHeightCm,
+  birthYear,
+  setBirthYear,
+  weeklyWeightChange,
+  setWeeklyWeightChange,
   onComplete,
   onBack,
   saving,
@@ -249,16 +285,32 @@ function GoalsStep({
   setTrainingEnabled: (e: boolean) => void;
   trainingGoalPerWeek: number;
   setTrainingGoalPerWeek: (g: number) => void;
-  bmr: number | undefined;
-  setBmr: (v: number | undefined) => void;
-  weeklyBalanceTarget: number | undefined;
-  setWeeklyBalanceTarget: (v: number | undefined) => void;
+  weightKg: string;
+  setWeightKg: (v: string) => void;
+  sex: 'male' | 'female' | undefined;
+  setSex: (v: 'male' | 'female' | undefined) => void;
+  heightCm: string;
+  setHeightCm: (v: string) => void;
+  birthYear: string;
+  setBirthYear: (v: string) => void;
+  weeklyWeightChange: number | undefined;
+  setWeeklyWeightChange: (v: number | undefined) => void;
   onComplete: () => void;
   onBack: () => void;
   saving: boolean;
 }) {
-  const [weightKg, setWeightKg] = useState<string>('');
   const [selectedIntensity, setSelectedIntensity] = useState<number | null>(null);
+
+  // Auto-calculate BMR from body stats
+  const estimatedBmr = useMemo(() => {
+    const w = parseFloat(weightKg);
+    const h = parseFloat(heightCm);
+    const y = parseInt(birthYear, 10);
+    if (!w || !h || !y || !sex) return null;
+    const age = new Date().getFullYear() - y;
+    if (age < 10 || age > 120) return null;
+    return calculateBMR(w, h, age, sex);
+  }, [weightKg, heightCm, birthYear, sex]);
 
   function handleWeightCalc(weight: string, intensityIndex: number) {
     setWeightKg(weight);
@@ -270,63 +322,160 @@ function GoalsStep({
     }
   }
 
+  const dailyDeficit = weeklyWeightChange !== undefined
+    ? Math.round(Math.abs(weeklyWeightChange * KCAL_PER_KG) / 7)
+    : null;
+
   return (
     <div className="space-y-5 max-h-[calc(100vh-120px)] overflow-y-auto pb-4">
-      {/* Protein Goal - Primary */}
       <div>
         <StepHeader
           icon={Target}
           iconColor="text-primary"
           iconBg="bg-primary/10"
           title="Set Your Goals"
-          subtitle="Protein is the main event. Sleep and training help you get the most from it."
+          subtitle="Enter your stats for personalized recommendations."
         />
       </div>
 
+      {/* Body Stats */}
       <div className="bg-card rounded-2xl shadow-sm p-5 space-y-4">
-        <div className="text-sm font-medium">Daily Protein Goal</div>
+        <div className="text-sm font-medium">Body Stats</div>
 
-        {/* Weight-based calculator */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Weight</label>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="75"
+                value={weightKg}
+                onChange={(e) => {
+                  setWeightKg(e.target.value);
+                  if (selectedIntensity !== null) {
+                    handleWeightCalc(e.target.value, selectedIntensity);
+                  }
+                }}
+                className="flex-1 h-10 px-3 rounded-xl bg-muted text-sm border-0 focus:ring-2 focus:ring-primary/30 outline-none text-center"
+              />
+              <span className="text-xs text-muted-foreground">kg</span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Height</label>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="178"
+                value={heightCm}
+                onChange={(e) => setHeightCm(e.target.value)}
+                className="flex-1 h-10 px-3 rounded-xl bg-muted text-sm border-0 focus:ring-2 focus:ring-primary/30 outline-none text-center"
+              />
+              <span className="text-xs text-muted-foreground">cm</span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Birth year</label>
             <input
               type="number"
-              inputMode="decimal"
-              placeholder="Your weight (kg)"
-              value={weightKg}
-              onChange={(e) => {
-                const val = e.target.value;
-                setWeightKg(val);
-                if (selectedIntensity !== null) {
-                  handleWeightCalc(val, selectedIntensity);
-                }
-              }}
-              className="flex-1 h-10 px-3 rounded-xl bg-muted text-sm border-0 focus:ring-2 focus:ring-primary/30 outline-none"
+              inputMode="numeric"
+              placeholder="1990"
+              value={birthYear}
+              onChange={(e) => setBirthYear(e.target.value)}
+              className="w-full h-10 px-3 rounded-xl bg-muted text-sm border-0 focus:ring-2 focus:ring-primary/30 outline-none text-center"
             />
-            <span className="text-xs text-muted-foreground">kg</span>
           </div>
-          <div className="flex gap-2">
-            {INTENSITY_PRESETS.map((preset, i) => (
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Sex</label>
+            <div className="flex gap-2">
               <button
-                key={preset.label}
-                onClick={() => handleWeightCalc(weightKg || '0', i)}
+                onClick={() => setSex('male')}
                 className={cn(
-                  'flex-1 py-1.5 rounded-lg text-xs font-medium transition-all btn-press',
-                  selectedIntensity === i
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-muted hover:bg-muted/80'
+                  'flex-1 h-10 rounded-xl text-sm font-medium transition-all btn-press',
+                  sex === 'male' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted hover:bg-muted/80'
                 )}
               >
-                <div>{preset.label}</div>
-                <div className="text-[10px] opacity-70">{preset.factor}g/kg</div>
+                Male
               </button>
-            ))}
+              <button
+                onClick={() => setSex('female')}
+                className={cn(
+                  'flex-1 h-10 rounded-xl text-sm font-medium transition-all btn-press',
+                  sex === 'female' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted hover:bg-muted/80'
+                )}
+              >
+                Female
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="relative flex items-center justify-center">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/50" /></div>
-          <span className="relative bg-card px-2 text-xs text-muted-foreground">or set manually</span>
+        {estimatedBmr && (
+          <div className="text-xs text-muted-foreground text-center pt-1">
+            Estimated BMR: <span className="font-medium text-foreground">{estimatedBmr} kcal/day</span>
+          </div>
+        )}
+      </div>
+
+      {/* Weight Goal */}
+      {estimatedBmr && (
+        <div className="bg-card rounded-2xl shadow-sm p-5 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl p-2 bg-orange-500/10">
+              <Scale className="h-4 w-4 text-orange-500" />
+            </div>
+            <div>
+              <span className="text-sm font-medium">Weight goal</span>
+              <p className="text-xs text-muted-foreground">Weekly target for your reports</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {WEIGHT_CHANGE_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => setWeeklyWeightChange(preset.value)}
+                className={cn(
+                  'flex-1 py-2 rounded-xl text-xs font-medium transition-all btn-press',
+                  weeklyWeightChange === preset.value
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'bg-muted hover:bg-muted/80'
+                )}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          {dailyDeficit !== null && weeklyWeightChange !== 0 && (
+            <p className="text-xs text-muted-foreground text-center">
+              ~{dailyDeficit} kcal {weeklyWeightChange! < 0 ? 'deficit' : 'surplus'} per day
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Protein Goal */}
+      <div className="bg-card rounded-2xl shadow-sm p-5 space-y-4">
+        <div className="text-sm font-medium">Daily Protein Goal</div>
+
+        {/* Intensity presets (use shared weight) */}
+        <div className="flex gap-2">
+          {INTENSITY_PRESETS.map((preset, i) => (
+            <button
+              key={preset.label}
+              onClick={() => handleWeightCalc(weightKg || '0', i)}
+              className={cn(
+                'flex-1 py-1.5 rounded-lg text-xs font-medium transition-all btn-press',
+                selectedIntensity === i
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted hover:bg-muted/80'
+              )}
+            >
+              <div>{preset.label}</div>
+              <div className="text-[10px] opacity-70">{preset.factor}g/kg</div>
+            </button>
+          ))}
         </div>
 
         {/* +/- controls */}
@@ -368,7 +517,7 @@ function GoalsStep({
         </div>
       </div>
 
-      {/* Sleep - Secondary */}
+      {/* Sleep */}
       <div className="bg-card rounded-2xl shadow-sm p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -403,7 +552,7 @@ function GoalsStep({
         )}
       </div>
 
-      {/* Training - Secondary */}
+      {/* Training */}
       <div className="bg-card rounded-2xl shadow-sm p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -435,52 +584,6 @@ function GoalsStep({
             </button>
           </div>
         )}
-      </div>
-
-      {/* Energy Balance - Optional */}
-      <div className="bg-card rounded-2xl shadow-sm p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl p-2 bg-orange-500/10">
-            <Scale className="h-4 w-4 text-orange-500" />
-          </div>
-          <div>
-            <span className="font-medium text-sm">Energy balance</span>
-            <p className="text-xs text-muted-foreground">Optional — for deficit/surplus tracking in reports</p>
-          </div>
-        </div>
-
-        <div className="space-y-2 pl-11">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground w-20">BMR</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              placeholder="e.g. 1800"
-              value={bmr || ''}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                setBmr(val > 0 ? val : undefined);
-              }}
-              className="flex-1 h-9 px-3 rounded-xl bg-muted text-sm border-0 focus:ring-2 focus:ring-primary/30 outline-none text-center"
-            />
-            <span className="text-xs text-muted-foreground">kcal/day</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground w-20">Weekly goal</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              placeholder="e.g. 3500"
-              value={weeklyBalanceTarget ? Math.abs(weeklyBalanceTarget) : ''}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                setWeeklyBalanceTarget(val > 0 ? -val : undefined);
-              }}
-              className="flex-1 h-9 px-3 rounded-xl bg-muted text-sm border-0 focus:ring-2 focus:ring-primary/30 outline-none text-center"
-            />
-            <span className="text-xs text-muted-foreground">kcal deficit</span>
-          </div>
-        </div>
       </div>
 
       {/* Navigation */}

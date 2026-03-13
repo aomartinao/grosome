@@ -109,6 +109,24 @@ export interface MPSHit {
   time: Date;
 }
 
+/**
+ * Calculate BMR using Mifflin-St Jeor equation.
+ * Male: 10×weight(kg) + 6.25×height(cm) − 5×age + 5
+ * Female: 10×weight(kg) + 6.25×height(cm) − 5×age − 161
+ */
+export function calculateBMR(
+  weightKg: number,
+  heightCm: number,
+  age: number,
+  sex: 'male' | 'female',
+): number {
+  const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
+  return Math.round(sex === 'male' ? base + 5 : base - 161);
+}
+
+/** Convert weekly weight change (kg) to weekly calorie balance (kcal) */
+export const KCAL_PER_KG = 7700;
+
 export function calculateMPSHits<T extends { protein: number; consumedAt?: Date; createdAt: Date }>(
   entries: T[]
 ): T[] {
