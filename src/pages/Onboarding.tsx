@@ -35,7 +35,9 @@ const WEIGHT_CHANGE_PRESETS = [
 
 export function Onboarding() {
   const { updateSettings } = useSettings();
-  const [step, setStep] = useState<Step>('welcome');
+  const user = useAuthStore((s) => s.user);
+  // If already logged in (e.g. re-run from settings), skip welcome/auth and go straight to goals
+  const [step, setStep] = useState<Step>(user ? 'goals' : 'welcome');
   const [weightKg, setWeightKg] = useState<string>('');
   const [proteinGoal, setProteinGoal] = useState(150);
   const [sleepEnabled, setSleepEnabled] = useState(true);
