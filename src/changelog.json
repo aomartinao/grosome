@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.9.78",
+    "date": "2026-03-14",
+    "changes": [
+      "Fixed re-run onboarding logging user out (no longer syncs settings change to cloud)",
+      "Re-run onboarding flag now takes priority over completed state"
+    ]
+  },
+  {
     "version": "0.9.77",
     "date": "2026-03-14",
     "changes": [

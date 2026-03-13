@@ -462,9 +462,8 @@ export function Settings() {
           title="Body & Energy"
           titleAction={
             <button
-              onClick={async () => {
+              onClick={() => {
                 sessionStorage.setItem('rerun-onboarding', 'true');
-                await updateSettings({ onboardingCompleted: false });
                 window.location.href = '/';
               }}
               className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1"

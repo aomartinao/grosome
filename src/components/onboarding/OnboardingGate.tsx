@@ -28,22 +28,22 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!settingsLoaded || decided.current) return;
 
-    // Already completed onboarding
-    if (settings.onboardingCompleted) {
-      decided.current = true;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setChecked(true);
-      setShowOnboarding(false);
-      return;
-    }
-
     // If user explicitly re-ran onboarding (via settings), always show it
     const wasExplicitRerun = sessionStorage.getItem('rerun-onboarding') === 'true';
     if (wasExplicitRerun) {
       sessionStorage.removeItem('rerun-onboarding');
       decided.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowOnboarding(true);
       setChecked(true);
+      return;
+    }
+
+    // Already completed onboarding
+    if (settings.onboardingCompleted) {
+      decided.current = true;
+      setChecked(true);
+      setShowOnboarding(false);
       return;
     }
 
